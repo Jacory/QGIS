@@ -32,6 +32,7 @@ from processing.core.parameters import ParameterBoolean
 from processing.core.parameters import ParameterNumber
 from processing.core.parameters import ParameterSelection
 
+
 class lascontrol(LAStoolsAlgorithm):
 
     POLYGON = "POLYGON"
@@ -41,22 +42,27 @@ class lascontrol(LAStoolsAlgorithm):
     CLASSIFY_AS = "CLASSIFY_AS"
 
     def defineCharacteristics(self):
-        self.name = "lascontrol"
-        self.group = "LAStools"
-        self.addParametersVerboseGUI();
+        self.name, self.i18n_name = self.trAlgorithm('lascontrol')
+        self.group, self.i18n_group = self.trAlgorithm('LAStools')
+        self.addParametersVerboseGUI()
         self.addParametersPointInputGUI()
-        self.addParameter(ParameterVector(lascontrol.POLYGON, "Input polygon(s)", ParameterVector.VECTOR_TYPE_POLYGON))
-        self.addParameter(ParameterBoolean(lascontrol.INTERIOR, "interior", False))
-        self.addParameter(ParameterSelection(lascontrol.OPERATION, "what to do with isolated points", lascontrol.OPERATIONS, 0))
-        self.addParameter(ParameterNumber(lascontrol.CLASSIFY_AS, "classify as", 0, None, 12))
+        self.addParameter(ParameterVector(lascontrol.POLYGON,
+                                          self.tr("Input polygon(s)"), ParameterVector.VECTOR_TYPE_POLYGON))
+        self.addParameter(ParameterBoolean(lascontrol.INTERIOR,
+                                           self.tr("interior"), False))
+        self.addParameter(ParameterSelection(lascontrol.OPERATION,
+                                             self.tr("what to do with isolated points"), lascontrol.OPERATIONS, 0))
+        self.addParameter(ParameterNumber(lascontrol.CLASSIFY_AS,
+                                          self.tr("classify as"), 0, None, 12))
         self.addParametersPointOutputGUI()
+        self.addParametersAdditionalGUI()
 
     def processAlgorithm(self, progress):
-        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lascontrol.exe")]
+        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lascontrol")]
         self.addParametersVerboseCommands(commands)
         self.addParametersPointInputCommands(commands)
         poly = self.getParameterValue(lascontrol.POLYGON)
-        if poly != None:
+        if poly is not None:
             commands.append("-poly")
             commands.append(poly)
         if self.getParameterValue(lascontrol.INTERIOR):
@@ -65,7 +71,8 @@ class lascontrol(LAStoolsAlgorithm):
         if operation != 0:
             commands.append("-classify")
             classify_as = self.getParameterValue(lascontrol.CLASSIFY_AS)
-            commands.append(str(classify_as))
+            commands.append(unicode(classify_as))
         self.addParametersPointOutputCommands(commands)
+        self.addParametersAdditionalCommands(commands)
 
         LAStoolsUtils.runLAStools(commands, progress)

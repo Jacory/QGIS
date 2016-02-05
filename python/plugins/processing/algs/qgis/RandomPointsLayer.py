@@ -25,12 +25,10 @@ __copyright__ = '(C) 2014, Alexander Bruy'
 
 __revision__ = '$Format:%H$'
 
-import math
 import random
 
-from PyQt4.QtCore import *
-
-from qgis.core import *
+from PyQt4.QtCore import QVariant
+from qgis.core import QGis, QgsGeometry, QgsFields, QgsField, QgsSpatialIndex, QgsPoint, QgsFeature, QgsFeatureRequest
 
 from processing.core.GeoAlgorithm import GeoAlgorithm
 from processing.core.ProcessingLog import ProcessingLog
@@ -48,15 +46,16 @@ class RandomPointsLayer(GeoAlgorithm):
     OUTPUT = 'OUTPUT'
 
     def defineCharacteristics(self):
-        self.name = 'Random points in layer bounds'
-        self.group = 'Vector creation tools'
+        self.name, self.i18n_name = self.trAlgorithm('Random points in layer bounds')
+        self.group, self.i18n_group = self.trAlgorithm('Vector creation tools')
         self.addParameter(ParameterVector(self.VECTOR,
-            'Input layer',[ParameterVector.VECTOR_TYPE_POLYGON]))
-        self.addParameter(
-            ParameterNumber(self.POINT_NUMBER, 'Points number', 1, 9999999, 1))
-        self.addParameter(ParameterNumber(
-            self.MIN_DISTANCE, 'Minimum distance', 0.0, 9999999, 0.0))
-        self.addOutput(OutputVector(self.OUTPUT, 'Random points'))
+                                          self.tr('Input layer'), [ParameterVector.VECTOR_TYPE_POLYGON]))
+        self.addParameter(ParameterNumber(self.POINT_NUMBER,
+                                          self.tr('Points number'), 1, None, 1))
+        self.addParameter(ParameterNumber(self.MIN_DISTANCE,
+                                          self.tr('Minimum distance'), 0.0, None, 0.0))
+
+        self.addOutput(OutputVector(self.OUTPUT, self.tr('Random points')))
 
     def processAlgorithm(self, progress):
         layer = dataobjects.getObjectFromUri(
@@ -65,7 +64,6 @@ class RandomPointsLayer(GeoAlgorithm):
         minDistance = float(self.getParameterValue(self.MIN_DISTANCE))
 
         bbox = layer.extent()
-        extent = QgsGeometry().fromRect(bbox)
         idxLayer = vector.spatialindex(layer)
 
         fields = QgsFields()
@@ -111,9 +109,8 @@ class RandomPointsLayer(GeoAlgorithm):
             nIterations += 1
 
         if nPoints < pointCount:
-             ProcessingLog.addToLog(
-                 ProcessingLog.LOG_INFO,
-                 'Can not generate requested number of random points. Maximum '
-                 'number of attempts exceeded.')
+            ProcessingLog.addToLog(ProcessingLog.LOG_INFO,
+                                   self.tr('Can not generate requested number of random points. '
+                                           'Maximum number of attempts exceeded.'))
 
         del writer

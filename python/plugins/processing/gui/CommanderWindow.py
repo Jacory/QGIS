@@ -26,25 +26,25 @@ __revision__ = '$Format:%H$'
 import types
 import os
 import imp
-from PyQt4 import QtCore, QtGui
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+
+from PyQt4.QtCore import Qt, QSize
+from PyQt4.QtGui import QDialog, QLabel, QSpacerItem, QHBoxLayout, QVBoxLayout, QSizePolicy, QComboBox, QCompleter, QSortFilterProxyModel
 from qgis.utils import iface
 from processing.core.Processing import Processing
-from processing.gui.MissingDependencyDialog import MissingDependencyDialog
-from processing.gui.ParametersDialog import ParametersDialog
-from processing.tools import dataobjects
-from processing.tools.system import *
+from processing.gui.MessageDialog import MessageDialog
+from processing.gui.AlgorithmDialog import AlgorithmDialog
+from processing.tools.system import userFolder, mkdir
 
 ITEMHEIGHT = 30
 OFFSET = 20
 HEIGHT = 60
 
 
-class CommanderWindow(QtGui.QDialog):
+class CommanderWindow(QDialog):
+
     def __init__(self, parent, canvas):
         self.canvas = canvas
-        QtGui.QDialog.__init__(self, parent, Qt.FramelessWindowHint)
+        QDialog.__init__(self, parent, Qt.FramelessWindowHint)
         self.commands = imp.load_source('commands', self.commandsFile())
         self.initGui()
 
@@ -75,21 +75,21 @@ class CommanderWindow(QtGui.QDialog):
         self.fillCombo()
 
         self.combo.setEditable(True)
-        self.label = QtGui.QLabel('Enter command:')
-        self.errorLabel = QtGui.QLabel('Enter command:')
-        self.vlayout = QtGui.QVBoxLayout()
+        self.label = QLabel('Enter command:')
+        self.errorLabel = QLabel('Enter command:')
+        self.vlayout = QVBoxLayout()
         self.vlayout.setSpacing(2)
         self.vlayout.setMargin(0)
-        self.vlayout.addSpacerItem(QtGui.QSpacerItem(0, OFFSET,
-                QSizePolicy.Maximum, QSizePolicy.Expanding))
-        self.hlayout = QtGui.QHBoxLayout()
+        self.vlayout.addSpacerItem(QSpacerItem(0, OFFSET,
+                                               QSizePolicy.Maximum, QSizePolicy.Expanding))
+        self.hlayout = QHBoxLayout()
         self.hlayout.addWidget(self.label)
         self.vlayout.addLayout(self.hlayout)
-        self.hlayout2 = QtGui.QHBoxLayout()
+        self.hlayout2 = QHBoxLayout()
         self.hlayout2.addWidget(self.combo)
         self.vlayout.addLayout(self.hlayout2)
-        self.vlayout.addSpacerItem(QtGui.QSpacerItem(0, OFFSET,
-                QSizePolicy.Maximum, QSizePolicy.Expanding))
+        self.vlayout.addSpacerItem(QSpacerItem(0, OFFSET,
+                                               QSizePolicy.Maximum, QSizePolicy.Expanding))
         self.setLayout(self.vlayout)
         self.combo.lineEdit().returnPressed.connect(self.run)
         self.prepareGui()
@@ -107,7 +107,7 @@ class CommanderWindow(QtGui.QDialog):
         # Add functions
         for command in dir(self.commands):
             if isinstance(self.commands.__dict__.get(command),
-                    types.FunctionType):
+                          types.FunctionType):
                 self.combo.addItem('Command: ' + command)
 
         #Add menu entries
@@ -120,8 +120,7 @@ class CommanderWindow(QtGui.QDialog):
 
     def prepareGui(self):
         self.combo.setEditText('')
-        self.combo.setMaximumSize(QtCore.QSize(
-                self.canvas.rect().width() - 2 * OFFSET, ITEMHEIGHT))
+        self.combo.setMaximumSize(QSize(self.canvas.rect().width() - 2 * OFFSET, ITEMHEIGHT))
         self.combo.view().setStyleSheet('min-height: 150px')
         self.combo.setFocus(Qt.OtherFocusReason)
         self.label.setMaximumSize(self.combo.maximumSize())
@@ -163,7 +162,7 @@ class CommanderWindow(QtGui.QDialog):
             try:
                 self.runCommand(command)
                 self.close()
-            except Exception, e:
+            except Exception as e:
                 self.label.setVisible(True)
                 self.label.setText('Error:' + unicode(e))
 
@@ -182,7 +181,7 @@ class CommanderWindow(QtGui.QDialog):
             try:
                 self.runCommand(s)
                 self.close()
-            except Exception, e:
+            except Exception as e:
                 self.label.setVisible(True)
                 self.label.setText('Error:' + unicode(e))
 
@@ -205,12 +204,14 @@ class CommanderWindow(QtGui.QDialog):
         alg = alg.getCopy()
         message = alg.checkBeforeOpeningParametersDialog()
         if message:
-            dlg = MissingDependencyDialog(message)
+            dlg = MessageDialog()
+            dlg.setTitle(self.tr('Missing dependency'))
+            dlg.setMessage(message)
             dlg.exec_()
             return
         dlg = alg.getCustomParametersDialog()
         if not dlg:
-            dlg = ParametersDialog(alg)
+            dlg = AlgorithmDialog(alg)
         canvas = iface.mapCanvas()
         prevMapTool = canvas.mapTool()
         dlg.show()
@@ -224,6 +225,7 @@ class CommanderWindow(QtGui.QDialog):
 
 
 class ExtendedComboBox(QComboBox):
+
     def __init__(self, parent=None):
         super(ExtendedComboBox, self).__init__(parent)
 
@@ -237,5 +239,4 @@ class ExtendedComboBox(QComboBox):
         self.completer.popup().setStyleSheet('min-height: 150px')
         self.completer.popup().setAlternatingRowColors(True)
         self.setCompleter(self.completer)
-        self.lineEdit().textEdited[unicode].connect(
-                self.pFilterModel.setFilterFixedString)
+        self.lineEdit().textEdited[unicode].connect(self.pFilterModel.setFilterFixedString)

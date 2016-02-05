@@ -26,7 +26,7 @@
 QgsComposerMapOverview::QgsComposerMapOverview( const QString& name, QgsComposerMap* map )
     : QgsComposerMapItem( name, map )
     , mFrameMapId( -1 )
-    , mFrameSymbol( 0 )
+    , mFrameSymbol( nullptr )
     , mBlendMode( QPainter::CompositionMode_SourceOver )
     , mInverted( false )
     , mCentered( false )
@@ -35,7 +35,12 @@ QgsComposerMapOverview::QgsComposerMapOverview( const QString& name, QgsComposer
 }
 
 QgsComposerMapOverview::QgsComposerMapOverview()
-    : QgsComposerMapItem( QString(), 0 )
+    : QgsComposerMapItem( QString(), nullptr )
+    , mFrameMapId( -1 )
+    , mFrameSymbol( nullptr )
+    , mBlendMode( QPainter::CompositionMode_SourceOver )
+    , mInverted( false )
+    , mCentered( false )
 {
 }
 
@@ -55,7 +60,7 @@ QgsComposerMapOverview::~QgsComposerMapOverview()
   delete mFrameSymbol;
 }
 
-void QgsComposerMapOverview::draw( QPainter *painter ) const
+void QgsComposerMapOverview::draw( QPainter *painter )
 {
   if ( !mEnabled || mFrameMapId == -1 || !mComposerMap || !mComposerMap->composition() )
   {
@@ -92,6 +97,9 @@ void QgsComposerMapOverview::draw( QPainter *painter ) const
   QgsRenderContext context = QgsRenderContext::fromMapSettings( ms );
   context.setForceVectorOutput( true );
   context.setPainter( painter );
+  QgsExpressionContext* expressionContext = createExpressionContext();
+  context.setExpressionContext( *expressionContext );
+  delete expressionContext;
 
   painter->save();
   painter->setCompositionMode( mBlendMode );
@@ -108,6 +116,8 @@ void QgsComposerMapOverview::draw( QPainter *painter ) const
 
   //workaround QT Bug #21329
   thisRectPoly.pop_back();
+  thisExtent.pop_back();
+
   //create transform from map coordinates to painter coordinates
   QTransform::quadToQuad( thisExtent, thisRectPoly, mapTransform );
   QPolygonF intersectPolygon;
@@ -117,7 +127,7 @@ void QgsComposerMapOverview::draw( QPainter *painter ) const
   if ( !mInverted )
   {
     //Render the intersecting map extent
-    mFrameSymbol->renderPolygon( intersectPolygon, &rings, 0, context );;
+    mFrameSymbol->renderPolygon( intersectPolygon, &rings, nullptr, context );
   }
   else
   {
@@ -132,7 +142,7 @@ void QgsComposerMapOverview::draw( QPainter *painter ) const
 
     //Intersecting extent is an inner ring for the shaded area
     rings.append( intersectPolygon );
-    mFrameSymbol->renderPolygon( outerPolygon, &rings, 0, context );
+    mFrameSymbol->renderPolygon( outerPolygon, &rings, nullptr, context );
   }
 
   mFrameSymbol->stopRender( context );
@@ -173,15 +183,15 @@ bool QgsComposerMapOverview::readXML( const QDomElement &itemElem, const QDomDoc
   bool ok = QgsComposerMapItem::readXML( itemElem, doc );
 
   setFrameMap( itemElem.attribute( "frameMap", "-1" ).toInt() );
-  mBlendMode = QgsMapRenderer::getCompositionMode(( QgsMapRenderer::BlendMode ) itemElem.attribute( "blendMode", "0" ).toUInt() );
+  mBlendMode = QgsMapRenderer::getCompositionMode( static_cast< QgsMapRenderer::BlendMode >( itemElem.attribute( "blendMode", "0" ).toUInt() ) );
   mInverted = ( itemElem.attribute( "inverted", "0" ) != "0" );
   mCentered = ( itemElem.attribute( "centered", "0" ) != "0" );
 
   QDomElement frameStyleElem = itemElem.firstChildElement( "symbol" );
-  if ( !frameStyleElem.isNull( ) )
+  if ( !frameStyleElem.isNull() )
   {
     delete mFrameSymbol;
-    mFrameSymbol = dynamic_cast<QgsFillSymbolV2*>( QgsSymbolLayerV2Utils::loadSymbol( frameStyleElem ) );
+    mFrameSymbol = QgsSymbolLayerV2Utils::loadSymbol<QgsFillSymbolV2>( frameStyleElem );
   }
   return ok;
 }
@@ -348,7 +358,7 @@ QgsComposerMapOverview *QgsComposerMapOverviewStack::overview( const int index )
 
 QgsComposerMapOverview &QgsComposerMapOverviewStack::operator[]( int idx )
 {
-  QgsComposerMapItem* item = mItems[idx];
+  QgsComposerMapItem* item = mItems.at( idx );
   QgsComposerMapOverview* overview = dynamic_cast<QgsComposerMapOverview*>( item );
   return *overview;
 }

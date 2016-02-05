@@ -5,9 +5,10 @@
 #include "qgslogger.h"
 
 #include <QCheckBox>
+#include <QSettings>
 
 
-QgsDataDefinedSymbolDialog::QgsDataDefinedSymbolDialog( const QList< DataDefinedSymbolEntry >& entries, const QgsVectorLayer* vl, QWidget * parent, Qt::WindowFlags f )
+QgsDataDefinedSymbolDialog::QgsDataDefinedSymbolDialog( const QList< DataDefinedSymbolEntry >& entries, const QgsVectorLayer* vl, QWidget * parent, const Qt::WindowFlags& f )
     : QDialog( parent, f )
     , mVectorLayer( vl )
 {
@@ -16,10 +17,9 @@ QgsDataDefinedSymbolDialog::QgsDataDefinedSymbolDialog( const QList< DataDefined
   QgsFields attributeFields;
   if ( mVectorLayer )
   {
-    attributeFields = mVectorLayer->pendingFields();
+    attributeFields = mVectorLayer->fields();
   }
 
-  int i = 0;
   QList< DataDefinedSymbolEntry >::const_iterator entryIt = entries.constBegin();
   for ( ; entryIt != entries.constEnd(); ++entryIt )
   {
@@ -43,7 +43,6 @@ QgsDataDefinedSymbolDialog::QgsDataDefinedSymbolDialog( const QList< DataDefined
     item->setText( 2, entryIt->helpText );
 
     mTreeWidget->addTopLevelItem( item );
-    ++i;
   }
 
   for ( int c = 0; c != mTreeWidget->columnCount() - 1; c++ )
@@ -136,6 +135,28 @@ QString QgsDataDefinedSymbolDialog::gradientSpreadHelpText()
 QString QgsDataDefinedSymbolDialog::boolHelpText()
 {
   return tr( "0 (false)|1 (true)" );
+}
+
+QString QgsDataDefinedSymbolDialog::lineStyleHelpText()
+{
+  return "'no'|'solid'|'dash'|'dot'|'dash dot'|'dash dot dot'";
+}
+
+QString QgsDataDefinedSymbolDialog::joinStyleHelpText()
+{
+  return "'bevel'|'miter'|'round'";
+}
+
+QString QgsDataDefinedSymbolDialog::capStyleHelpText()
+{
+  return "'square'|'flat'|'round'";
+}
+
+QString QgsDataDefinedSymbolDialog::fillStyleHelpText()
+{
+  return "'solid'|'horizontal'|'vertical'|'cross'|'b_diagonal'|'f_diagonal'|"
+         "'diagonal_x'|'dense1'|'dense2'|'dense3'|'dense4'|'dense5'|"
+         "'dense6'|'dense7'|'no'";
 }
 
 

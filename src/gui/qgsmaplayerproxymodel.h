@@ -19,9 +19,10 @@
 #include <QSortFilterProxyModel>
 
 class QgsMapLayerModel;
+class QgsMapLayer;
 
 /**
- * @brief The QgsMapLayerProxModel class provides an easy to use model to display the list of layers in widgets.
+ * @brief The QgsMapLayerProxyModel class provides an easy to use model to display the list of layers in widgets.
  * @note added in 2.3
  */
 class GUI_EXPORT QgsMapLayerProxyModel : public QSortFilterProxyModel
@@ -39,7 +40,7 @@ class GUI_EXPORT QgsMapLayerProxyModel : public QSortFilterProxyModel
       HasGeometry = PointLayer | LineLayer | PolygonLayer,
       VectorLayer = NoGeometry | HasGeometry,
       PluginLayer = 32,
-      All = RasterLayer | PolygonLayer | PluginLayer
+      All = RasterLayer | VectorLayer | PluginLayer
     };
     Q_DECLARE_FLAGS( Filters, Filter )
 
@@ -47,7 +48,7 @@ class GUI_EXPORT QgsMapLayerProxyModel : public QSortFilterProxyModel
      * @brief QgsMapLayerProxModel creates a proxy model with a QgsMapLayerModel as source model.
      * It can be used to filter the layers list in a widget.
      */
-    explicit QgsMapLayerProxyModel( QObject *parent = 0 );
+    explicit QgsMapLayerProxyModel( QObject *parent = nullptr );
 
     /**
      * @brief layerModel returns the QgsMapLayerModel used in this QSortFilterProxyModel
@@ -59,17 +60,22 @@ class GUI_EXPORT QgsMapLayerProxyModel : public QSortFilterProxyModel
      * @param filters are Filter flags
      * @note added in 2.3
      */
-    QgsMapLayerProxyModel* setFilters( Filters filters );
+    QgsMapLayerProxyModel* setFilters( const QgsMapLayerProxyModel::Filters& filters );
     const Filters& filters() const { return mFilters; }
+
+    //! offer the possibility to except some layers to be listed
+    void setExceptedLayerList( const QList<QgsMapLayer*>& exceptList );
+    QList<QgsMapLayer*> exceptedLayerList() {return mExceptList;}
 
   private:
     Filters mFilters;
+    QList<QgsMapLayer*> mExceptList;
     QgsMapLayerModel* mModel;
 
     // QSortFilterProxyModel interface
   public:
-    bool filterAcceptsRow( int source_row, const QModelIndex &source_parent ) const;
-    bool lessThan( const QModelIndex &left, const QModelIndex &right ) const;
+    bool filterAcceptsRow( int source_row, const QModelIndex &source_parent ) const override;
+    bool lessThan( const QModelIndex &left, const QModelIndex &right ) const override;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS( QgsMapLayerProxyModel::Filters )

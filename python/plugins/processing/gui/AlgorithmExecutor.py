@@ -25,15 +25,15 @@ __copyright__ = '(C) 2012, Victor Olaya'
 
 __revision__ = '$Format:%H$'
 
-from PyQt4.QtGui import *
-from PyQt4.QtCore import *
-from qgis.core import *
+import sys
+
+from PyQt4.QtCore import QSettings, QCoreApplication
+from qgis.core import QgsFeature, QgsVectorFileWriter
 from processing.core.ProcessingLog import ProcessingLog
-from processing.core.GeoAlgorithmExecutionException import \
-        GeoAlgorithmExecutionException
+from processing.core.GeoAlgorithmExecutionException import GeoAlgorithmExecutionException
 from processing.gui.Postprocessing import handleAlgorithmResults
 from processing.tools import dataobjects
-from processing.tools.system import *
+from processing.tools.system import getTempFilename
 from processing.tools import vector
 from processing.gui.SilentProgress import SilentProgress
 
@@ -50,15 +50,11 @@ def runalg(alg, progress=None):
     try:
         alg.execute(progress)
         return True
-    except GeoAlgorithmExecutionException, e:
+    except GeoAlgorithmExecutionException as e:
         ProcessingLog.addToLog(sys.exc_info()[0], ProcessingLog.LOG_ERROR)
         progress.error(e.msg)
         return False
-    except Exception:
-        msg = 'Uncaught error executing ' + str(alg.name) + '\nSee log for more information'
-        ProcessingLog.addToLog(sys.exc_info()[0], ProcessingLog.LOG_ERROR)
-        progress.error(msg)
-        return False
+
 
 def runalgIterating(alg, paramToIter, progress):
     # Generate all single-feature layers
@@ -75,7 +71,7 @@ def runalgIterating(alg, paramToIter, progress):
         output = getTempFilename('shp')
         filelist.append(output)
         writer = QgsVectorFileWriter(output, systemEncoding,
-                provider.fields(), provider.geometryType(), layer.crs())
+                                     provider.fields(), provider.geometryType(), layer.crs())
         writer.addFeature(feat)
         del writer
 
@@ -84,16 +80,15 @@ def runalgIterating(alg, paramToIter, progress):
         outputs[out.name] = out.value
 
     # now run all the algorithms
-    for i,f in enumerate(filelist):
+    for i, f in enumerate(filelist):
         alg.setParameterValue(paramToIter, f)
         for out in alg.outputs:
             filename = outputs[out.name]
             if filename:
-                filename = filename[:filename.rfind('.')] + '_' + str(i) \
+                filename = filename[:filename.rfind('.')] + '_' + unicode(i) \
                     + filename[filename.rfind('.'):]
             out.value = filename
-        progress.setText('Executing iteration ' + str(i) + '/'
-                         + str(len(filelist)) + '...')
+        progress.setText(tr('Executing iteration %s/%s...' % (unicode(i), unicode(len(filelist)))))
         progress.setPercentage(i * 100 / len(filelist))
         if runalg(alg):
             handleAlgorithmResults(alg, None, False)
@@ -101,3 +96,9 @@ def runalgIterating(alg, paramToIter, progress):
             return False
 
     return True
+
+
+def tr(string, context=''):
+    if context == '':
+        context = 'AlgorithmExecutor'
+    return QCoreApplication.translate(context, string)

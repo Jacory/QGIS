@@ -12,16 +12,14 @@
  *   (at your option) any later version.                                   *
  *                                                                         *
  ***************************************************************************/
-#include <QtTest>
+#include <QtTest/QtTest>
 #include <QObject>
 #include <QString>
-#include <QObject>
 #include <QApplication>
 #include <QFileInfo>
 #include <QDir>
 #include <QDesktopServices>
 
-#include <iostream>
 //qgis includes...
 #include <qgsapplication.h>
 #include <qgsgeometry.h>
@@ -30,12 +28,16 @@
 
 class TestQgsPoint: public QObject
 {
-    Q_OBJECT;
+    Q_OBJECT
   private slots:
     void initTestCase();// will be called before the first testfunction is executed.
     void cleanupTestCase();// will be called after the last testfunction was executed.
     void init();// will be called before each testfunction is executed.
     void cleanup();// will be called after every testfunction.
+    void equality();
+    void gettersSetters();
+    void constructors();
+    void toQPointF();
     void toString();
     void toDegreesMinutesSeconds();
     void toDegreesMinutesSecondsNoSuffix();
@@ -47,6 +49,8 @@ class TestQgsPoint: public QObject
     void sqrDist();
     void multiply();
     void onSegment();
+    void compare();
+
   private:
     QgsPoint mPoint1;
     QgsPoint mPoint2;
@@ -71,6 +75,60 @@ void TestQgsPoint::cleanup()
   // will be called after every testfunction.
 }
 
+void TestQgsPoint::equality()
+{
+  QgsPoint point1( 5.0, 9.0 );
+  QgsPoint point2( 5.0, 9.0 );
+  QCOMPARE( point1, point2 );
+  QgsPoint point3( 5.0, 6.0 );
+  QVERIFY( !( point3 == point1 ) );
+  QVERIFY( point3 != point1 );
+  QgsPoint point4( 8.0, 9.0 );
+  QVERIFY( !( point4 == point1 ) );
+  QVERIFY( point4 != point1 );
+  QVERIFY( !( point4 == point3 ) );
+  QVERIFY( point4 != point3 );
+}
+
+void TestQgsPoint::gettersSetters()
+{
+  QgsPoint point;
+  point.setX( 1.0 );
+  QCOMPARE( point.x(), 1.0 );
+  point.setY( 2.0 );
+  QCOMPARE( point.y(), 2.0 );
+  point.set( 3.0, 4.0 );
+  QCOMPARE( point.x(), 3.0 );
+  QCOMPARE( point.y(), 4.0 );
+}
+
+void TestQgsPoint::constructors()
+{
+  QgsPoint point1 = QgsPoint( 20.0, -20.0 );
+  QCOMPARE( point1.x(), 20.0 );
+  QCOMPARE( point1.y(), -20.0 );
+  QgsPoint point2( point1 );
+  QCOMPARE( point2, point1 );
+
+  QPointF sourceQPointF( 20.0, -20.0 );
+  QgsPoint fromQPointF( sourceQPointF );
+  QCOMPARE( fromQPointF.x(), 20.0 );
+  QCOMPARE( fromQPointF.y(), -20.0 );
+
+  QPointF sourceQPoint( 20, -20 );
+  QgsPoint fromQPoint( sourceQPoint );
+  QCOMPARE( fromQPoint.x(), 20.0 );
+  QCOMPARE( fromQPoint.y(), -20.0 );
+}
+
+void TestQgsPoint::toQPointF()
+{
+  QgsPoint point( 20.0, -20.0 );
+  QPointF result = point.toQPointF();
+  QCOMPARE( result.x(), 20.0 );
+  QCOMPARE( result.y(), -20.0 );
+}
+
 void TestQgsPoint::initTestCase()
 {
   //
@@ -88,7 +146,7 @@ void TestQgsPoint::cleanupTestCase()
   //
   // Runs once after all tests are run
   //
-  QString myReportFile = QDir::tempPath() + QDir::separator() + "qgistest.html";
+  QString myReportFile = QDir::tempPath() + "/qgistest.html";
   QFile myFile( myReportFile );
   if ( myFile.open( QIODevice::WriteOnly | QIODevice::Append ) )
   {
@@ -160,6 +218,38 @@ void TestQgsPoint::toDegreesMinutesSeconds()
                     QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 );
   QCOMPARE( QgsPoint( -359, 0 ).toDegreesMinutesSeconds( 2 ), myControlString );
 
+  //check if latitudes > 90 or <-90 wrap around
+  myControlString = QString( "0" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) +
+                    QString( ",10" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) + QString( "N" );
+  QCOMPARE( QgsPoint( 0, 190 ).toDegreesMinutesSeconds( 2 ), myControlString );
+  myControlString = QString( "0" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) +
+                    QString( ",10" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) + QString( "S" );
+  QCOMPARE( QgsPoint( 0, -190 ).toDegreesMinutesSeconds( 2 ), myControlString );
+  myControlString = QString( "0" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) +
+                    QString( ",89" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) + QString( "S" );
+  QCOMPARE( QgsPoint( 0, 91 ).toDegreesMinutesSeconds( 2 ), myControlString );
+  myControlString = QString( "0" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) +
+                    QString( ",89" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) + QString( "N" );
+  QCOMPARE( QgsPoint( 0, -91 ).toDegreesMinutesSeconds( 2 ), myControlString );
+  myControlString = QString( "0" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) +
+                    QString( ",1" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) + QString( "S" );
+  QCOMPARE( QgsPoint( 0, 179 ).toDegreesMinutesSeconds( 2 ), myControlString );
+  myControlString = QString( "0" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) +
+                    QString( ",1" ) + QChar( 176 ) +
+                    QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) + QString( "N" );
+  QCOMPARE( QgsPoint( 0, -179 ).toDegreesMinutesSeconds( 2 ), myControlString );
+
   //should be no directional suffixes for 0 degree coordinates
   myControlString = QString( "0" ) + QChar( 176 ) +
                     QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) +
@@ -198,9 +288,9 @@ void TestQgsPoint::toDegreesMinutesSeconds()
   //test rounding does not create seconds >= 60
   myControlString = QString( "100" ) + QChar( 176 ) +
                     QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) + QString( "E" ) +
-                    QString( ",100" ) + QChar( 176 ) +
+                    QString( ",90" ) + QChar( 176 ) +
                     QString( "0" ) + QChar( 0x2032 ) + QString( "0.00" ) + QChar( 0x2033 ) + QString( "N" );
-  QCOMPARE( QgsPoint( 99.999999, 99.999999 ).toDegreesMinutesSeconds( 2 ), myControlString );
+  QCOMPARE( QgsPoint( 99.999999, 89.999999 ).toDegreesMinutesSeconds( 2 ), myControlString );
 
   //should be no directional suffixes for 180 degree longitudes
   myControlString = QString( "180" ) + QChar( 176 ) +
@@ -533,5 +623,16 @@ void TestQgsPoint::onSegment()
 
 }
 
+void TestQgsPoint::compare()
+{
+  QgsPoint point1( 5.000000000001, 9.0 );
+  QgsPoint point2( 5.0, 8.999999999999999 );
+  QVERIFY( point1.compare( point2, 0.00000001 ) );
+  QgsPoint point3( 5.0, 6.0 );
+  QVERIFY( !( point3.compare( point1 ) ) );
+  QgsPoint point4( 10 / 3.0, 12 / 7.0 );
+  QVERIFY( point4.compare( QgsPoint( 10 / 3.0, 12 / 7.0 ) ) );
+}
+
 QTEST_MAIN( TestQgsPoint )
-#include "moc_testqgspoint.cxx"
+#include "testqgspoint.moc"

@@ -16,9 +16,6 @@
 *                                                                         *
 ***************************************************************************
 """
-from processing.script.ScriptUtils import ScriptUtils
-import os
-
 
 __author__ = 'Victor Olaya'
 __date__ = 'December 2012'
@@ -28,53 +25,76 @@ __copyright__ = '(C) 2012, Victor Olaya'
 
 __revision__ = '$Format:%H$'
 
-from PyQt4.QtGui import *
-from ftools.RandomExtract import RandomExtract
-from ftools.RandomExtractWithinSubsets import RandomExtractWithinSubsets
-from ftools.ExtractByLocation import ExtractByLocation
+import os
+
+try:
+    import matplotlib.pyplot
+    hasMatplotlib = True
+except:
+    hasMatplotlib = False
+
+from PyQt4.QtGui import QIcon
 
 from processing.core.AlgorithmProvider import AlgorithmProvider
-from ftools.PointsInPolygon import PointsInPolygon
-from ftools.PointsInPolygonUnique import PointsInPolygonUnique
-from ftools.PointsInPolygonWeighted import PointsInPolygonWeighted
-from ftools.SumLines import SumLines
-from ftools.BasicStatisticsNumbers import BasicStatisticsNumbers
-from ftools.BasicStatisticsStrings import BasicStatisticsStrings
-from ftools.NearestNeighbourAnalysis import NearestNeighbourAnalysis
-from ftools.LinesIntersection import LinesIntersection
-from ftools.MeanCoords import MeanCoords
-from ftools.PointDistance import PointDistance
-from ftools.UniqueValues import UniqueValues
-from ftools.ReprojectLayer import ReprojectLayer
-from ftools.ExportGeometryInfo import ExportGeometryInfo
-from ftools.Centroids import Centroids
-from ftools.Delaunay import Delaunay
-from ftools.VoronoiPolygons import VoronoiPolygons
-from ftools.DensifyGeometries import DensifyGeometries
-from ftools.MultipartToSingleparts import MultipartToSingleparts
-from ftools.SimplifyGeometries import SimplifyGeometries
-from ftools.LinesToPolygons import LinesToPolygons
-from ftools.PolygonsToLines import PolygonsToLines
-from ftools.SinglePartsToMultiparts import SinglePartsToMultiparts
-from ftools.ExtractNodes import ExtractNodes
-from ftools.ConvexHull import ConvexHull
-from ftools.FixedDistanceBuffer import FixedDistanceBuffer
-from ftools.VariableDistanceBuffer import VariableDistanceBuffer
-from ftools.Clip import Clip
-from ftools.Difference import Difference
-from ftools.Dissolve import Dissolve
-from ftools.Intersection import Intersection
-from ftools.ExtentFromLayer import ExtentFromLayer
-from ftools.RandomSelection import RandomSelection
-from ftools.RandomSelectionWithinSubsets import RandomSelectionWithinSubsets
-from ftools.SelectByLocation import SelectByLocation
-from ftools.Union import Union
-from ftools.DensifyGeometriesInterval import DensifyGeometriesInterval
-from ftools.Eliminate import Eliminate
-from ftools.SpatialJoin import SpatialJoin
+from processing.script.ScriptUtils import ScriptUtils
 
-from mmqgisx.MMQGISXAlgorithms import *
-
+from RegularPoints import RegularPoints
+from SymmetricalDifference import SymmetricalDifference
+from VectorSplit import VectorSplit
+from VectorGrid import VectorGrid
+from RandomExtract import RandomExtract
+from RandomExtractWithinSubsets import RandomExtractWithinSubsets
+from ExtractByLocation import ExtractByLocation
+from PointsInPolygon import PointsInPolygon
+from PointsInPolygonUnique import PointsInPolygonUnique
+from PointsInPolygonWeighted import PointsInPolygonWeighted
+from SumLines import SumLines
+from BasicStatisticsNumbers import BasicStatisticsNumbers
+from BasicStatisticsStrings import BasicStatisticsStrings
+from NearestNeighbourAnalysis import NearestNeighbourAnalysis
+from LinesIntersection import LinesIntersection
+from MeanCoords import MeanCoords
+from PointDistance import PointDistance
+from UniqueValues import UniqueValues
+from ReprojectLayer import ReprojectLayer
+from ExportGeometryInfo import ExportGeometryInfo
+from Centroids import Centroids
+from Delaunay import Delaunay
+from VoronoiPolygons import VoronoiPolygons
+from DensifyGeometries import DensifyGeometries
+from MultipartToSingleparts import MultipartToSingleparts
+from SimplifyGeometries import SimplifyGeometries
+from LinesToPolygons import LinesToPolygons
+from PolygonsToLines import PolygonsToLines
+from SinglePartsToMultiparts import SinglePartsToMultiparts
+from ExtractNodes import ExtractNodes
+from ConvexHull import ConvexHull
+from FixedDistanceBuffer import FixedDistanceBuffer
+from VariableDistanceBuffer import VariableDistanceBuffer
+from Clip import Clip
+from Difference import Difference
+from Dissolve import Dissolve
+from Intersection import Intersection
+from ExtentFromLayer import ExtentFromLayer
+from RandomSelection import RandomSelection
+from RandomSelectionWithinSubsets import RandomSelectionWithinSubsets
+from SelectByLocation import SelectByLocation
+from Union import Union
+from DensifyGeometriesInterval import DensifyGeometriesInterval
+from Eliminate import Eliminate
+from SpatialJoin import SpatialJoin
+from DeleteColumn import DeleteColumn
+from DeleteHoles import DeleteHoles
+from DeleteDuplicateGeometries import DeleteDuplicateGeometries
+from TextToFloat import TextToFloat
+from ExtractByAttribute import ExtractByAttribute
+from SelectByAttribute import SelectByAttribute
+from Grid import Grid
+from Gridify import Gridify
+from HubDistance import HubDistance
+from HubLines import HubLines
+from Merge import Merge
+from GeometryConvert import GeometryConvert
 from ConcaveHull import ConcaveHull
 from Polygonize import Polygonize
 from RasterLayerStatistics import RasterLayerStatistics
@@ -104,22 +124,27 @@ from ImportIntoPostGIS import ImportIntoPostGIS
 from SetVectorStyle import SetVectorStyle
 from SetRasterStyle import SetRasterStyle
 from SelectByExpression import SelectByExpression
-# from VectorLayerHistogram import VectorLayerHistogram
-# from VectorLayerScatterplot import VectorLayerScatterplot
-# from MeanAndStdDevPlot import MeanAndStdDevPlot
-# from BarPlot import BarPlot
-# from PolarPlot import PolarPlot
-# from RasterLayerHistogram import RasterLayerHistogram
+from SelectByAttributeSum import SelectByAttributeSum
+from HypsometricCurves import HypsometricCurves
+from SplitLinesWithLines import SplitLinesWithLines
+from FieldsMapper import FieldsMapper
+from Datasources2Vrt import Datasources2Vrt
+from CheckValidity import CheckValidity
+from OrientedMinimumBoundingBox import OrientedMinimumBoundingBox
+from Smooth import Smooth
+from ReverseLineDirection import ReverseLineDirection
+from ExecuteSQL import ExecuteSQL
 
-import processing.resources_rc
+pluginPath = os.path.normpath(os.path.join(
+    os.path.split(os.path.dirname(__file__))[0], os.pardir))
 
 
 class QGISAlgorithmProvider(AlgorithmProvider):
 
-    _icon = QIcon(':/processing/images/qgis.png')
-
     def __init__(self):
         AlgorithmProvider.__init__(self)
+        self._icon = QIcon(os.path.join(pluginPath, 'images', 'qgis.png'))
+
         self.alglist = [SumLines(), PointsInPolygon(),
                         PointsInPolygonWeighted(), PointsInPolygonUnique(),
                         BasicStatisticsStrings(), BasicStatisticsNumbers(),
@@ -134,23 +159,14 @@ class QGISAlgorithmProvider(AlgorithmProvider):
                         VariableDistanceBuffer(), Dissolve(), Difference(),
                         Intersection(), Union(), Clip(), ExtentFromLayer(),
                         RandomSelection(), RandomSelectionWithinSubsets(),
-                        SelectByLocation(), RandomExtract(),
+                        SelectByLocation(), RandomExtract(), DeleteHoles(),
                         RandomExtractWithinSubsets(), ExtractByLocation(),
-                        SpatialJoin(),
-                        # ------ mmqgisx ------
-                        mmqgisx_delete_columns_algorithm(),
-                        mmqgisx_delete_duplicate_geometries_algorithm(),
-                        mmqgisx_geometry_convert_algorithm(),
-                        mmqgisx_grid_algorithm(),
-                        mmqgisx_gridify_algorithm(),
-                        mmqgisx_hub_distance_algorithm(),
-                        mmqgisx_hub_lines_algorithm(),
-                        mmqgisx_merge_algorithm(),
-                        mmqgisx_select_algorithm(),
-                        mmqgisx_extract_algorithm(),
-                        mmqgisx_text_to_float_algorithm(),
-                        # ------ native algs ------
-                        AddTableField(), FieldsCalculator(),
+                        SpatialJoin(), RegularPoints(), SymmetricalDifference(),
+                        VectorSplit(), VectorGrid(), DeleteColumn(),
+                        DeleteDuplicateGeometries(), TextToFloat(),
+                        ExtractByAttribute(), SelectByAttribute(), Grid(),
+                        Gridify(), HubDistance(), HubLines(), Merge(),
+                        GeometryConvert(), AddTableField(), FieldsCalculator(),
                         SaveSelectedFeatures(), JoinAttributes(),
                         AutoincrementalField(), Explode(), FieldsPyculator(),
                         EquivalentNumField(), PointsLayerFromTable(),
@@ -162,14 +178,27 @@ class QGISAlgorithmProvider(AlgorithmProvider):
                         RandomPointsPolygonsVariable(),
                         RandomPointsAlongLines(), PointsToPaths(),
                         PostGISExecuteSQL(), ImportIntoPostGIS(),
-                        SetVectorStyle(), SetRasterStyle(), SelectByExpression()
-                        # ------ raster ------
-                        # CreateConstantRaster(),
-                        # ------ graphics ------
-                        # VectorLayerHistogram(), VectorLayerScatterplot(),
-                        # RasterLayerHistogram(), MeanAndStdDevPlot(),
-                        # BarPlot(), PolarPlot()
-                       ]
+                        SetVectorStyle(), SetRasterStyle(),
+                        SelectByExpression(), HypsometricCurves(),
+                        SplitLinesWithLines(), CreateConstantRaster(),
+                        FieldsMapper(), SelectByAttributeSum(), Datasources2Vrt(),
+                        CheckValidity(), OrientedMinimumBoundingBox(), Smooth(),
+                        ReverseLineDirection(), ExecuteSQL()
+                        ]
+
+        if hasMatplotlib:
+            from VectorLayerHistogram import VectorLayerHistogram
+            from RasterLayerHistogram import RasterLayerHistogram
+            from VectorLayerScatterplot import VectorLayerScatterplot
+            from MeanAndStdDevPlot import MeanAndStdDevPlot
+            from BarPlot import BarPlot
+            from PolarPlot import PolarPlot
+
+            self.alglist.extend([
+                VectorLayerHistogram(), RasterLayerHistogram(),
+                VectorLayerScatterplot(), MeanAndStdDevPlot(), BarPlot(),
+                PolarPlot(),
+            ])
 
         folder = os.path.join(os.path.dirname(__file__), 'scripts')
         scripts = ScriptUtils.loadFromFolder(folder)
@@ -189,7 +218,7 @@ class QGISAlgorithmProvider(AlgorithmProvider):
         return 'qgis'
 
     def getDescription(self):
-        return 'QGIS geoalgorithms'
+        return self.tr('QGIS geoalgorithms')
 
     def getIcon(self):
         return self._icon

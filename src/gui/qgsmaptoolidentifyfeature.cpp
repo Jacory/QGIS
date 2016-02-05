@@ -24,6 +24,8 @@ QgsMapToolIdentifyFeature::QgsMapToolIdentifyFeature( QgsMapCanvas* canvas, QgsV
     , mCanvas( canvas )
     , mLayer( vl )
 {
+  mToolName = tr( "Identify feature" );
+
   // set cursor
   QPixmap cursorPixmap = QPixmap(( const char ** ) cross_hair_cursor );
   mCursor = QCursor( cursorPixmap, 1, 1 );
@@ -33,7 +35,7 @@ QgsMapToolIdentifyFeature::~QgsMapToolIdentifyFeature()
 {
 }
 
-void QgsMapToolIdentifyFeature::canvasReleaseEvent( QMouseEvent* e )
+void QgsMapToolIdentifyFeature::canvasReleaseEvent( QgsMapMouseEvent* e )
 {
 
   QgsPoint point = mCanvas->getCoordinateTransform()->toMapCoordinates( e->x(), e->y() );

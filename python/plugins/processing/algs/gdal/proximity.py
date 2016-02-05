@@ -31,7 +31,7 @@ from processing.core.parameters import ParameterString
 from processing.core.parameters import ParameterSelection
 from processing.core.parameters import ParameterNumber
 from processing.core.outputs import OutputRaster
-from processing.tools.system import *
+from processing.tools.system import isWindows
 from processing.algs.gdal.GdalUtils import GdalUtils
 
 
@@ -44,6 +44,9 @@ class proximity(GdalAlgorithm):
     NODATA = 'NODATA'
     BUF_VAL = 'BUF_VAL'
     OUTPUT = 'OUTPUT'
+    RTYPE = 'RTYPE'
+
+    TYPE = ['Byte', 'Int16', 'UInt16', 'UInt32', 'Int32', 'Float32', 'Float64']
 
     DISTUNITS = ['GEO', 'PIXEL']
 
@@ -51,26 +54,31 @@ class proximity(GdalAlgorithm):
         return "gdalogr:proximity"
 
     def defineCharacteristics(self):
-        self.name = 'Proximity (raster distance)'
-        self.group = '[GDAL] Analysis'
-        self.addParameter(ParameterRaster(self.INPUT, 'Input layer', False))
-        self.addParameter(ParameterString(self.VALUES, 'Values', ''))
-        self.addParameter(ParameterSelection(self.UNITS, 'Dist units',
-                          self.DISTUNITS, 0))
+        self.name, self.i18n_name = self.trAlgorithm('Proximity (raster distance)')
+        self.group, self.i18n_group = self.trAlgorithm('[GDAL] Analysis')
+        self.addParameter(ParameterRaster(self.INPUT,
+                                          self.tr('Input layer'), False))
+        self.addParameter(ParameterString(self.VALUES,
+                                          self.tr('Values'), ''))
+        self.addParameter(ParameterSelection(self.UNITS,
+                                             self.tr('Distance units'), self.DISTUNITS, 0))
         self.addParameter(ParameterNumber(self.MAX_DIST,
-                          'Max dist (negative value to ignore)', -1, 9999, -1))
+                                          self.tr('Max distance (negative value to ignore)'), -1, 9999, -1))
         self.addParameter(ParameterNumber(self.NODATA,
-                          'No data (negative value to ignore)', -1, 9999, -1))
+                                          self.tr('Nodata (negative value to ignore)'), -1, 9999, -1))
         self.addParameter(ParameterNumber(self.BUF_VAL,
-                          'Fixed buf val (negative value to ignore)', -1,
-                          9999, -1))
+                                          self.tr('Fixed buf value (negative value to ignore)'),
+                                          -1, 9999, -1))
+        self.addParameter(ParameterSelection(self.RTYPE,
+                                             self.tr('Output raster type'), self.TYPE, 5))
+        self.addOutput(OutputRaster(self.OUTPUT, self.tr('Distance')))
 
-        self.addOutput(OutputRaster(self.OUTPUT, 'Output layer'))
-
-    def processAlgorithm(self, progress):
+    def getConsoleCommands(self):
         output = self.getOutputValue(self.OUTPUT)
 
         arguments = []
+        arguments.append('-ot')
+        arguments.append(self.TYPE[self.getParameterValue(self.RTYPE)])
         arguments.append(self.getParameterValue(self.INPUT))
         arguments.append(output)
 
@@ -85,17 +93,17 @@ class proximity(GdalAlgorithm):
             arguments.append('-values')
             arguments.append(values)
 
-        values = str(self.getParameterValue(self.MAX_DIST))
+        values = unicode(self.getParameterValue(self.MAX_DIST))
         if values < 0:
             arguments.append('-maxdist')
             arguments.append(values)
 
-        values = str(self.getParameterValue(self.NODATA))
+        values = unicode(self.getParameterValue(self.NODATA))
         if values < 0:
             arguments.append('-nodata')
             arguments.append(values)
 
-        values = str(self.getParameterValue(self.BUF_VAL))
+        values = unicode(self.getParameterValue(self.BUF_VAL))
         if values < 0:
             arguments.append('-fixed-buf-val')
             arguments.append(values)
@@ -108,4 +116,4 @@ class proximity(GdalAlgorithm):
             commands = ['gdal_proximity.py',
                         GdalUtils.escapeAndJoin(arguments)]
 
-        GdalUtils.runGdal(commands, progress)
+        return commands

@@ -27,21 +27,17 @@ __revision__ = '$Format:%H$'
 
 import os
 
-from PyQt4.QtGui import *
+from PyQt4.QtGui import QIcon
 
 from processing.core.GeoAlgorithm import GeoAlgorithm
-from processing.core.ProcessingLog import ProcessingLog
 from processing.core.ProcessingConfig import ProcessingConfig
-from processing.core.GeoAlgorithmExecutionException import \
-    GeoAlgorithmExecutionException
+from processing.core.GeoAlgorithmExecutionException import GeoAlgorithmExecutionException
 
 from processing.core.parameters import ParameterRaster
 from processing.core.parameters import ParameterNumber
 from processing.core.parameters import ParameterBoolean
 from processing.core.parameters import ParameterSelection
 from processing.core.outputs import OutputRaster
-
-from processing.tools.system import *
 
 from TauDEMUtils import TauDEMUtils
 
@@ -67,33 +63,33 @@ class DinfDistUp(GeoAlgorithm):
         1: 'h',
         2: 'v',
         3: 's',
-        }
+    }
 
     def getIcon(self):
         return QIcon(os.path.dirname(__file__) + '/../../images/taudem.png')
 
     def defineCharacteristics(self):
-        self.name = 'D-Infinity Distance Up'
+        self.name, self.i18n_name = self.trAlgorithm('D-Infinity Distance Up')
         self.cmdName = 'dinfdistup'
-        self.group = 'Specialized Grid Analysis tools'
+        self.group, self.i18n_group = self.trAlgorithm('Specialized Grid Analysis tools')
 
         self.addParameter(ParameterRaster(self.DINF_FLOW_DIR_GRID,
-                          'D-Infinity Flow Direction Grid', False))
+                                          self.tr('D-Infinity Flow Direction Grid'), False))
         self.addParameter(ParameterRaster(self.PIT_FILLED_GRID,
-                          'Pit Filled Elevation Grid', False))
-        self.addParameter(ParameterRaster(self.SLOPE_GRID, 'Slope Grid',
-                          False))
+                                          self.tr('Pit Filled Elevation Grid'), False))
+        self.addParameter(ParameterRaster(self.SLOPE_GRID,
+                                          self.tr('Slope Grid'), False))
         self.addParameter(ParameterSelection(self.STAT_METHOD,
-                          'Statistical Method', self.STATISTICS, 2))
+                                             self.tr('Statistical Method'), self.STATISTICS, 2))
         self.addParameter(ParameterSelection(self.DIST_METHOD,
-                          'Distance Method', self.DISTANCE, 1))
+                                             self.tr('Distance Method'), self.DISTANCE, 1))
         self.addParameter(ParameterNumber(self.THRESHOLD,
-                          'Proportion Threshold', 0, None, 0.5))
+                                          self.tr('Proportion Threshold'), 0, None, 0.5))
         self.addParameter(ParameterBoolean(self.EDGE_CONTAM,
-                          'Check for edge contamination', True))
+                                           self.tr('Check for edge contamination'), True))
 
-        self.addOutput(OutputRaster(self.DIST_UP_GRID, 'D-Infinity Distance Up'
-                       ))
+        self.addOutput(OutputRaster(self.DIST_UP_GRID,
+                                    self.tr('D-Infinity Distance Up')))
 
     def processAlgorithm(self, progress):
         commands = []
@@ -101,33 +97,27 @@ class DinfDistUp(GeoAlgorithm):
 
         processNum = ProcessingConfig.getSetting(TauDEMUtils.MPI_PROCESSES)
         if processNum <= 0:
-            raise GeoAlgorithmExecutionException('Wrong number of MPI \
-                processes used.\nPlease set correct number before running \
-                TauDEM algorithms.')
+            raise GeoAlgorithmExecutionException(
+                self.tr('Wrong number of MPI processes used. Please set '
+                        'correct number before running TauDEM algorithms.'))
 
         commands.append('-n')
-        commands.append(str(processNum))
+        commands.append(unicode(processNum))
         commands.append(os.path.join(TauDEMUtils.taudemPath(), self.cmdName))
         commands.append('-ang')
         commands.append(self.getParameterValue(self.DINF_FLOW_DIR_GRID))
         commands.append('-fel')
         commands.append(self.getParameterValue(self.PIT_FILLED_GRID))
         commands.append('-m')
-        commands.append(str(self.STAT_DICT[self.getParameterValue(
+        commands.append(unicode(self.STAT_DICT[self.getParameterValue(
             self.STAT_METHOD)]))
-        commands.append(str(self.DIST_DICT[self.getParameterValue(
+        commands.append(unicode(self.DIST_DICT[self.getParameterValue(
             self.DIST_METHOD)]))
         commands.append('-thresh')
-        commands.append(str(self.getParameterValue(self.THRESHOLD)))
-        if str(self.getParameterValue(self.EDGE_CONTAM)).lower() == 'false':
+        commands.append(unicode(self.getParameterValue(self.THRESHOLD)))
+        if not self.getParameterValue(self.EDGE_CONTAM):
             commands.append('-nc')
         commands.append('-du')
         commands.append(self.getOutputValue(self.DIST_UP_GRID))
-
-        loglines = []
-        loglines.append('TauDEM execution command')
-        for line in commands:
-            loglines.append(line)
-        ProcessingLog.addToLog(ProcessingLog.LOG_INFO, loglines)
 
         TauDEMUtils.executeTauDEM(commands, progress)

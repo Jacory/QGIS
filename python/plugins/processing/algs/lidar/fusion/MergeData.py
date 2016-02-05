@@ -38,10 +38,12 @@ class MergeData(FusionAlgorithm):
     OUTPUT = 'OUTPUT'
 
     def defineCharacteristics(self):
-        self.name = 'Merge LAS Files'
-        self.group = 'Points'
-        self.addParameter(ParameterFile(self.INPUT, 'Input LAS files'))
-        self.addOutput(OutputFile(self.OUTPUT, 'Output merged LAS file'))
+        self.name, self.i18n_name = self.trAlgorithm('Merge LAS Files')
+        self.group, self.i18n_group = self.trAlgorithm('Points')
+        self.addParameter(ParameterFile(
+            self.INPUT, self.tr('Input LAS files')))
+        self.addOutput(OutputFile(
+            self.OUTPUT, self.tr('Output merged LAS file')))
 
     def processAlgorithm(self, progress):
         commands = [os.path.join(FusionUtils.FusionPath(), 'MergeData.exe')]

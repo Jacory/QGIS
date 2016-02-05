@@ -122,12 +122,17 @@ GlobePlugin::GlobePlugin( QgisInterface* theQgisInterface )
     , mQActionUnload( 0 )
     , mOsgViewer( 0 )
     , mViewerWidget( 0 )
+    , mRootNode( 0 )
     , mMapNode( 0 )
     , mBaseLayer( 0 )
     , mQgisMapLayer( 0 )
     , mTileSource( 0 )
+    , mControlCanvas( 0 )
     , mElevationManager( 0 )
     , mObjectPlacer( 0 )
+    , mSelectedLat( 0. )
+    , mSelectedLon( 0. )
+    , mSelectedElevation( 0. )
 {
   mIsGlobeRunning = false;
   //needed to be "seen" by other plugins by doing
@@ -166,7 +171,7 @@ GlobePlugin::~GlobePlugin()
 struct PanControlHandler : public NavigationControlHandler
 {
   PanControlHandler( osgEarth::Util::EarthManipulator* manip, double dx, double dy ) : _manip( manip ), _dx( dx ), _dy( dy ) { }
-  virtual void onMouseDown( Control* /*control*/, int /*mouseButtonMask*/ )
+  virtual void onMouseDown( Control* /*control*/, int /*mouseButtonMask*/ ) override
   {
     _manip->pan( _dx, _dy );
   }
@@ -179,7 +184,7 @@ private:
 struct RotateControlHandler : public NavigationControlHandler
 {
   RotateControlHandler( osgEarth::Util::EarthManipulator* manip, double dx, double dy ) : _manip( manip ), _dx( dx ), _dy( dy ) { }
-  virtual void onMouseDown( Control* /*control*/, int /*mouseButtonMask*/ )
+  virtual void onMouseDown( Control* /*control*/, int /*mouseButtonMask*/ ) override
   {
     if ( 0 == _dx && 0 == _dy )
     {
@@ -199,7 +204,7 @@ private:
 struct ZoomControlHandler : public NavigationControlHandler
 {
   ZoomControlHandler( osgEarth::Util::EarthManipulator* manip, double dx, double dy ) : _manip( manip ), _dx( dx ), _dy( dy ) { }
-  virtual void onMouseDown( Control* /*control*/, int /*mouseButtonMask*/ )
+  virtual void onMouseDown( Control* /*control*/, int /*mouseButtonMask*/ ) override
   {
     _manip->zoom( _dx, _dy );
   }
@@ -211,8 +216,8 @@ private:
 
 struct HomeControlHandler : public NavigationControlHandler
 {
-  HomeControlHandler( osgEarth::Util::EarthManipulator* manip ) : _manip( manip ) { }
-  virtual void onClick( Control* /*control*/, int /*mouseButtonMask*/, const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa )
+  explicit HomeControlHandler( osgEarth::Util::EarthManipulator* manip ) : _manip( manip ) { }
+  virtual void onClick( Control* /*control*/, int /*mouseButtonMask*/, const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa ) override
   {
     _manip->home( ea, aa );
   }
@@ -222,8 +227,8 @@ private:
 
 struct RefreshControlHandler : public ControlEventHandler
 {
-  RefreshControlHandler( GlobePlugin* globe ) : mGlobe( globe ) { }
-  virtual void onClick( Control* /*control*/, int /*mouseButtonMask*/ )
+  explicit RefreshControlHandler( GlobePlugin* globe ) : mGlobe( globe ) { }
+  virtual void onClick( Control* /*control*/, int /*mouseButtonMask*/ ) override
   {
     mGlobe->imageLayersChanged();
   }
@@ -233,8 +238,8 @@ private:
 
 struct SyncExtentControlHandler : public ControlEventHandler
 {
-  SyncExtentControlHandler( GlobePlugin* globe ) : mGlobe( globe ) { }
-  virtual void onClick( Control* /*control*/, int /*mouseButtonMask*/ )
+  explicit SyncExtentControlHandler( GlobePlugin* globe ) : mGlobe( globe ) { }
+  virtual void onClick( Control* /*control*/, int /*mouseButtonMask*/ ) override
   {
     mGlobe->syncExtent();
   }
@@ -274,7 +279,7 @@ void GlobePlugin::initGui()
   mQGisIface->addPluginToMenu( tr( "&Globe" ), mQActionSettingsPointer );
   mQGisIface->addPluginToMenu( tr( "&Globe" ), mQActionUnload );
 
-  connect( mQGisIface->mapCanvas() , SIGNAL( extentsChanged() ),
+  connect( mQGisIface->mapCanvas(), SIGNAL( extentsChanged() ),
            this, SLOT( extentsChanged() ) );
   connect( mQGisIface->mapCanvas(), SIGNAL( layersChanged() ),
            this, SLOT( imageLayersChanged() ) );
@@ -648,7 +653,7 @@ void GlobePlugin::setupControls()
   rotateCW->setHeight( 22 );
   rotateCW->setWidth( 20 );
   rotateCW->setPosition( imgLeft + 36, imgTop + 18 );
-  rotateCW->addEventHandler( new RotateControlHandler( manip, -MOVE_OFFSET , 0 ) );
+  rotateCW->addEventHandler( new RotateControlHandler( manip, -MOVE_OFFSET, 0 ) );
   mControlCanvas->addControl( rotateCW );
 
   //Rotate Reset
@@ -783,14 +788,14 @@ void GlobePlugin::setupProxy()
     if ( !settings.value( "/proxyUser" ).toString().isEmpty() )
     {
       QString auth = settings.value( "/proxyUser" ).toString() + ":" + settings.value( "/proxyPassword" ).toString();
-#ifdef WIN32
+#ifdef Q_OS_WIN
       putenv( QString( "OSGEARTH_CURL_PROXYAUTH=%1" ).arg( auth ).toAscii() );
 #else
       setenv( "OSGEARTH_CURL_PROXYAUTH", auth.toStdString().c_str(), 0 );
 #endif
     }
     //TODO: settings.value("/proxyType")
-    //TODO: URL exlusions
+    //TODO: URL exclusions
     HTTPClient::setProxySettings( proxySettings );
   }
   settings.endGroup();
@@ -988,7 +993,7 @@ void GlobePlugin::help()
 {
 }
 
-void GlobePlugin::placeNode( osg::Node* node, double lat, double lon, double alt /*= 0.0*/ )
+void GlobePlugin::placeNode( osg::Node* node, double lat, double lon, double alt )
 {
 #ifdef HAVE_OSGEARTH_ELEVATION_QUERY
   Q_UNUSED( node );
@@ -999,7 +1004,7 @@ void GlobePlugin::placeNode( osg::Node* node, double lat, double lon, double alt
   // get elevation
   double elevation = 0.0;
   double resolution = 0.0;
-  mElevationManager->getElevation( lon, lat, 0, NULL, elevation, resolution );
+  mElevationManager->getElevation( lon, lat, 0, nullptr, elevation, resolution );
 
   // place model
   osg::Matrix mat;
@@ -1066,7 +1071,7 @@ bool NavigationControl::handle( const osgGA::GUIEventAdapter& ea, osgGA::GUIActi
           handler->onClick( this, ea.getButtonMask(), ea, aa );
         }
       }
-      _mouse_down_event = NULL;
+      _mouse_down_event = nullptr;
       break;
     default:
       /* ignore */
@@ -1263,7 +1268,7 @@ osg::Vec3d QueryCoordinatesHandler::getCoords( float x, float y, osgViewer::View
       if ( _elevMan->getPlacementMatrix(
              lon_deg, lat_deg, 0,
              query_resolution, _mapSRS,
-             //query_resolution, NULL,
+             //query_resolution, nullptr,
              out_mat, elevation, out_resolution ) )
       {
         OE_NOTICE << "Elevation at " << lon_deg << ", " << lat_deg

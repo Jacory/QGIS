@@ -27,8 +27,7 @@ __revision__ = '$Format:%H$'
 
 import os
 import subprocess
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt4.QtCore import QCoreApplication
 from processing.core.ProcessingLog import ProcessingLog
 from processing.core.ProcessingConfig import ProcessingConfig
 from processing.tools.system import userFolder
@@ -62,15 +61,17 @@ class FusionUtils:
     @staticmethod
     def runFusion(commands, progress):
         loglines = []
-        loglines.append('Fusion execution console output')
+        loglines.append(
+            QCoreApplication.translate('FusionUtils',
+                                       'Fusion execution console output'))
         proc = subprocess.Popen(
             commands,
             shell=True,
             stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
+            stdin=open(os.devnull),
             stderr=subprocess.STDOUT,
             universal_newlines=False,
-            ).stdout
+        ).stdout
         for line in iter(proc.readline, ''):
             loglines.append(line)
         ProcessingLog.addToLog(ProcessingLog.LOG_INFO, loglines)

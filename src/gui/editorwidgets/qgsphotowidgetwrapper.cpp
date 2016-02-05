@@ -3,7 +3,7 @@
      --------------------------------------
     Date                 : 5.1.2014
     Copyright            : (C) 2014 Matthias Kuhn
-    Email                : matthias dot kuhn at gmx dot ch
+    Email                : matthias at opengis dot ch
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -14,6 +14,8 @@
  ***************************************************************************/
 
 #include "qgsphotowidgetwrapper.h"
+#include "qgspixmaplabel.h"
+#include "qgsproject.h"
 
 #include <QGridLayout>
 #include <QFileDialog>
@@ -23,22 +25,50 @@
 
 QgsPhotoWidgetWrapper::QgsPhotoWidgetWrapper( QgsVectorLayer* vl, int fieldIdx, QWidget* editor, QWidget* parent )
     :  QgsEditorWidgetWrapper( vl, fieldIdx, editor, parent )
+    , mPhotoLabel( nullptr )
+    , mPhotoPixmapLabel( nullptr )
+    , mLineEdit( nullptr )
+    , mButton( nullptr )
 {
+#ifdef WITH_QTWEBKIT
+  mWebView = nullptr;
+#endif
 }
 
 void QgsPhotoWidgetWrapper::selectFileName()
 {
-  if ( mLineEdit )
-  {
-    QString fileName = QFileDialog::getOpenFileName( 0 , tr( "Select a picture" ), QFileInfo( mLineEdit->text() ).absolutePath() );
-    if ( !fileName.isNull() )
-      mLineEdit->setText( QDir::toNativeSeparators( fileName ) );
-  }
+  if ( !mLineEdit )
+    return;
+
+  QString fileName = QFileDialog::getOpenFileName( nullptr, tr( "Select a picture" ), QFileInfo( mLineEdit->text() ).absolutePath() );
+
+  if ( fileName.isNull() )
+    return;
+
+  QString projPath = QDir::toNativeSeparators( QDir::cleanPath( QgsProject::instance()->fileInfo().absolutePath() ) );
+  QString filePath = QDir::toNativeSeparators( QDir::cleanPath( QFileInfo( fileName ).absoluteFilePath() ) );
+
+  if ( filePath.startsWith( projPath ) )
+    filePath = QDir( projPath ).relativeFilePath( filePath );
+
+  mLineEdit->setText( filePath );
 }
 
-void QgsPhotoWidgetWrapper::loadPixmap( const QString &fileName )
+void QgsPhotoWidgetWrapper::loadPixmap( const QString& fileName )
 {
-  QPixmap pm( fileName );
+  QString filePath = fileName;
+
+  if ( QUrl( fileName ).isRelative() )
+    filePath = QDir( QgsProject::instance()->fileInfo().absolutePath() ).filePath( fileName );
+
+#ifdef WITH_QTWEBKIT
+  if ( mWebView )
+  {
+    mWebView->setUrl( filePath );
+  }
+#endif
+
+  QPixmap pm( filePath );
   if ( !pm.isNull() && mPhotoLabel )
   {
     QSize size( config( "Width" ).toInt(), config( "Height" ).toInt() );
@@ -51,15 +81,26 @@ void QgsPhotoWidgetWrapper::loadPixmap( const QString &fileName )
       size.setHeight( size.width() * pm.size().height() / pm.size().width() );
     }
 
-    pm = pm.scaled( size, Qt::KeepAspectRatio, Qt::SmoothTransformation );
+    if ( mPhotoPixmapLabel )
+    {
+      mPhotoPixmapLabel->setPixmap( pm );
 
-
-    mPhotoLabel->setPixmap( pm );
-    mPhotoLabel->setMinimumSize( size );
+      if ( size.width() != 0 || size.height() != 0 )
+      {
+        mPhotoPixmapLabel->setMinimumSize( size );
+        mPhotoPixmapLabel->setMaximumSize( size );
+      }
+    }
+    else // mPhotoLabel is checked in the outer if branch
+    {
+      mPhotoLabel->setMinimumSize( size );
+      pm = pm.scaled( size, Qt::KeepAspectRatio, Qt::SmoothTransformation );
+      mPhotoLabel->setPixmap( pm );
+    }
   }
 }
 
-QVariant QgsPhotoWidgetWrapper::value()
+QVariant QgsPhotoWidgetWrapper::value() const
 {
   QVariant v;
 
@@ -79,7 +120,7 @@ QWidget* QgsPhotoWidgetWrapper::createWidget( QWidget* parent )
   QWidget* container = new QWidget( parent );
   QGridLayout* layout = new QGridLayout( container );
   QgsFilterLineEdit* le = new QgsFilterLineEdit( container );
-  QLabel* label = new QLabel( parent );
+  QgsPixmapLabel* label = new QgsPixmapLabel( parent );
   label->setObjectName( "PhotoLabel" );
   QPushButton* pb = new QPushButton( tr( "..." ), container );
   pb->setObjectName( "FileChooserButton" );
@@ -98,9 +139,21 @@ void QgsPhotoWidgetWrapper::initWidget( QWidget* editor )
   QWidget* container;
 
   mLineEdit = qobject_cast<QLineEdit*>( editor );
+#ifdef WITH_QTWEBKIT
+  mWebView = qobject_cast<QWebView*>( editor );
+#endif
 
   if ( mLineEdit )
-    container = qobject_cast<QWidget*>( mLineEdit->parent() );
+  {
+    container = mLineEdit->parentWidget();
+  }
+#ifdef WITH_QTWEBKIT
+  else if ( mWebView )
+  {
+    container = mWebView->parentWidget();
+    mLineEdit = container->findChild<QLineEdit*>();
+  }
+#endif
   else
   {
     container = editor;
@@ -115,6 +168,7 @@ void QgsPhotoWidgetWrapper::initWidget( QWidget* editor )
   if ( !mPhotoLabel )
     mPhotoLabel = container->findChild<QLabel*>();
 
+  mPhotoPixmapLabel = qobject_cast<QgsPixmapLabel*>( mPhotoLabel );
   if ( mButton )
     connect( mButton, SIGNAL( clicked() ), this, SLOT( selectFileName() ) );
 
@@ -132,6 +186,15 @@ void QgsPhotoWidgetWrapper::initWidget( QWidget* editor )
   }
 }
 
+bool QgsPhotoWidgetWrapper::valid() const
+{
+#ifdef WITH_QTWEBKIT
+  return mPhotoLabel || mLineEdit || mButton || mWebView;
+#else
+  return mPhotoLabel || mLineEdit || mButton;
+#endif
+}
+
 void QgsPhotoWidgetWrapper::setValue( const QVariant& value )
 {
   if ( mLineEdit )
@@ -140,6 +203,10 @@ void QgsPhotoWidgetWrapper::setValue( const QVariant& value )
       mLineEdit->setText( QSettings().value( "qgis/nullValue", "NULL" ).toString() );
     else
       mLineEdit->setText( value.toString() );
+  }
+  else
+  {
+    loadPixmap( value.toString() );
   }
 }
 

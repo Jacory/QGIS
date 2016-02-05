@@ -29,6 +29,7 @@
 
 #include "qgsgeometrycache.h"
 
+class QgsLabelingEngineV2;
 class QgsLabelingResults;
 class QgsMapLayerRenderer;
 class QgsMapRendererCache;
@@ -126,6 +127,13 @@ class CORE_EXPORT QgsMapRendererJob : public QObject
     //! Find out how log it took to finish the job (in miliseconds)
     int renderingTime() const { return mRenderingTime; }
 
+    /**
+     * Return map settings with which this job was started.
+     * @return A QgsMapSettings instance with render settings
+     * @note added in 2.8
+     */
+    const QgsMapSettings& mapSettings() const;
+
   signals:
 
     //! emitted when asynchronous rendering is finished (or canceled).
@@ -139,10 +147,10 @@ class CORE_EXPORT QgsMapRendererJob : public QObject
      * source CRS coordinates, and if it was split, returns true, and
      * also sets the contents of the r2 parameter
      */
-    static bool reprojectToLayerExtent( const QgsCoordinateTransform* ct, bool layerCrsGeographic, QgsRectangle& extent, QgsRectangle& r2 );
+    static bool reprojectToLayerExtent( const QgsMapLayer *ml, const QgsCoordinateTransform *ct, QgsRectangle &extent, QgsRectangle &r2 );
 
     //! @note not available in python bindings
-    LayerRenderJobs prepareJobs( QPainter* painter, QgsPalLabeling* labelingEngine );
+    LayerRenderJobs prepareJobs( QPainter* painter, QgsPalLabeling* labelingEngine, QgsLabelingEngineV2* labelingEngine2 );
 
     //! @note not available in python bindings
     void cleanupJobs( LayerRenderJobs& jobs );
@@ -151,7 +159,8 @@ class CORE_EXPORT QgsMapRendererJob : public QObject
 
     bool needTemporaryImage( QgsMapLayer* ml );
 
-    static void drawLabeling( const QgsMapSettings& settings, QgsRenderContext& renderContext, QgsPalLabeling* labelingEngine, QPainter* painter );
+    //! @note not available in Python bindings
+    static void drawLabeling( const QgsMapSettings& settings, QgsRenderContext& renderContext, QgsPalLabeling* labelingEngine, QgsLabelingEngineV2* labelingEngine2, QPainter* painter );
     static void drawOldLabeling( const QgsMapSettings& settings, QgsRenderContext& renderContext );
     static void drawNewLabeling( const QgsMapSettings& settings, QgsRenderContext& renderContext, QgsPalLabeling* labelingEngine );
 
@@ -180,6 +189,8 @@ class CORE_EXPORT QgsMapRendererJob : public QObject
  */
 class CORE_EXPORT QgsMapRendererQImageJob : public QgsMapRendererJob
 {
+    Q_OBJECT
+
   public:
     QgsMapRendererQImageJob( const QgsMapSettings& settings );
 

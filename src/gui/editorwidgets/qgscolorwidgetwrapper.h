@@ -3,7 +3,7 @@
      --------------------------------------
     Date                 : 5.1.2014
     Copyright            : (C) 2014 Matthias Kuhn
-    Email                : matthias dot kuhn at gmx dot ch
+    Email                : matthias at opengis dot ch
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -18,33 +18,34 @@
 
 #include "qgseditorwidgetwrapper.h"
 
-#include "qgscolorbutton.h"
+#include "qgscolorbuttonv2.h"
 
 
 /**
  * Wraps a color widget. Users will be able to choose a color.
- *
+ * \note not available in Python bindings
  */
 
 class GUI_EXPORT  QgsColorWidgetWrapper : public QgsEditorWidgetWrapper
 {
     Q_OBJECT
   public:
-    explicit QgsColorWidgetWrapper( QgsVectorLayer* vl, int fieldIdx, QWidget* editor = 0, QWidget* parent = 0 );
+    explicit QgsColorWidgetWrapper( QgsVectorLayer* vl, int fieldIdx, QWidget* editor = nullptr, QWidget* parent = nullptr );
 
     // QgsEditorWidgetWrapper interface
   public:
-    QVariant value();
+    QVariant value() const override;
 
   protected:
-    QWidget*createWidget( QWidget* parent );
-    void initWidget( QWidget* editor );
+    QWidget* createWidget( QWidget* parent ) override;
+    void initWidget( QWidget* editor ) override;
+    bool valid() const override;
 
   public slots:
-    void setValue( const QVariant& value );
+    void setValue( const QVariant& value ) override;
 
   private:
-    QgsColorButton* mColorButton;
+    QgsColorButtonV2* mColorButton;
 };
 
 #endif // QGSCOLORWIDGETWRAPPER_H

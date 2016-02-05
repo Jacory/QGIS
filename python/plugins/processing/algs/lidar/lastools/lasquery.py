@@ -31,32 +31,34 @@ import os
 from LAStoolsUtils import LAStoolsUtils
 from processing.core.parameters import ParameterExtent
 from LAStoolsAlgorithm import LAStoolsAlgorithm
-from qgis.core import QgsMapLayer, QgsMapLayerRegistry, QgsVectorLayer
+from qgis.core import QgsMapLayer, QgsMapLayerRegistry
+
 
 class lasquery(LAStoolsAlgorithm):
 
     AOI = "AOI"
 
     def defineCharacteristics(self):
-        self.name = "lasquery"
-        self.group = "LAStools"
+        self.name, self.i18n_name = self.trAlgorithm('lasquery')
+        self.group, self.i18n_group = self.trAlgorithm('LAStools')
         self.addParametersVerboseGUI()
-        self.addParameter(ParameterExtent(self.AOI, 'area of interest'))
+        self.addParameter(ParameterExtent(self.AOI, self.tr('area of interest')))
+        self.addParametersAdditionalGUI()
 
     def processAlgorithm(self, progress):
 
-        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lasview.exe")]
+        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lasview")]
         self.addParametersVerboseCommands(commands)
 
-	# get area-of-interest
-        aoi = str(self.getParameterValue(self.AOI))
+    # get area-of-interest
+        aoi = unicode(self.getParameterValue(self.AOI))
         aoiCoords = aoi.split(',')
 
         # get layers
         layers = QgsMapLayerRegistry.instance().mapLayers()
 
         # loop over layers
-        for name,layer in layers.iteritems():
+        for name, layer in layers.iteritems():
             layerType = layer.type()
             if layerType == QgsMapLayer.VectorLayer:
                 shp_file_name = layer.source()
@@ -70,5 +72,6 @@ class lasquery(LAStoolsAlgorithm):
         commands.append(aoiCoords[2])
         commands.append(aoiCoords[1])
         commands.append(aoiCoords[3])
+        self.addParametersAdditionalCommands(commands)
 
         LAStoolsUtils.runLAStools(commands, progress)

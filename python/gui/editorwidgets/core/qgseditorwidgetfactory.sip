@@ -3,7 +3,7 @@
      --------------------------------------
     Date                 : 21.4.2013
     Copyright            : (C) 2013 Matthias Kuhn
-    Email                : matthias dot kuhn at gmx dot ch
+    Email                : matthias at opengis dot ch
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -45,6 +45,8 @@ class QgsEditorWidgetFactory
      * @return         A new widget wrapper
      */
     virtual QgsEditorWidgetWrapper* create( QgsVectorLayer* vl, int fieldIdx, QWidget* editor, QWidget* parent ) const = 0 /Factory/;
+
+    virtual QgsSearchWidgetWrapper* createSearchWidget( QgsVectorLayer* vl, int fieldIdx, QWidget* parent ) const /Factory/;
 
     /**
      * Return The human readable identifier name of this widget type
@@ -93,8 +95,20 @@ class QgsEditorWidgetFactory
      * @param vl        The layer
      * @param fieldIdx  The field index
      * @return          True if the type is supported for this field
+     *
+     * @see isFieldSupported( QgsVectorLayer* vl, ind fieldIdx )
      */
     bool supportsField( QgsVectorLayer* vl, int fieldIdx );
+
+    /**
+     * Returns a list of widget types which this editor widget supports.
+     * Each widget type can have a priority value attached, the factory with the highest one
+     * will be used.
+     *
+     * @return A map of widget type names and weight values
+     * @note not available in Python bindings
+     */
+    //virtual QMap<const char*, int> supportedWidgetTypes() { return QMap<const char*, int>(); }
 
     /**
      * Create a pretty String representation of the value.
@@ -102,6 +116,7 @@ class QgsEditorWidgetFactory
      * @param vl        The vector layer.
      * @param fieldIdx  The index of the field.
      * @param config    The editor widget config.
+     * @param cache     The editor widget cache.
      * @param value     The value to represent.
      *
      * @return By default the string representation of the provided value as implied by the field definition is returned.
@@ -119,7 +134,6 @@ class QgsEditorWidgetFactory
      */
     virtual QVariant createCache( QgsVectorLayer* vl, int fieldIdx, const QgsEditorWidgetConfig& config );
 
-  private:
     /**
      * Read the config from an XML file and map it to a proper {@link QgsEditorWidgetConfig}.
      *
@@ -131,14 +145,17 @@ class QgsEditorWidgetFactory
      */
     virtual QgsEditorWidgetConfig readConfig( const QDomElement& configElement, QgsVectorLayer* layer, int fieldIdx );
 
+  private:
     /**
-     * This method allows to disable this editor widget type for a certain field.
+     * This method allows disabling this editor widget type for a certain field.
      * By default, it returns true for all fields.
      * Reimplement this if you only support certain fields.
      *
      * @param vl
      * @param fieldIdx
      * @return True if the field is supported.
+     *
+     * @see supportsField( QgsVectorLayer* vl, fieldIdx )
      */
     virtual bool isFieldSupported( QgsVectorLayer* vl, int fieldIdx );
 };

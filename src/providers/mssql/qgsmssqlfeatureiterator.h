@@ -29,10 +29,10 @@ class QgsMssqlProvider;
 class QgsMssqlFeatureSource : public QgsAbstractFeatureSource
 {
   public:
-    QgsMssqlFeatureSource( const QgsMssqlProvider* p );
+    explicit QgsMssqlFeatureSource( const QgsMssqlProvider* p );
     ~QgsMssqlFeatureSource();
 
-    virtual QgsFeatureIterator getFeatures( const QgsFeatureRequest& request );
+    virtual QgsFeatureIterator getFeatures( const QgsFeatureRequest& request ) override;
 
   protected:
     QgsFields mFields;
@@ -65,6 +65,7 @@ class QgsMssqlFeatureSource : public QgsAbstractFeatureSource
     bool isSpatial() { return !mGeometryColName.isEmpty() || !mGeometryColType.isEmpty(); }
 
     friend class QgsMssqlFeatureIterator;
+    friend class QgsMssqlExpressionCompiler;
 };
 
 class QgsMssqlFeatureIterator : public QgsAbstractFeatureIteratorFromSource<QgsMssqlFeatureSource>
@@ -75,17 +76,24 @@ class QgsMssqlFeatureIterator : public QgsAbstractFeatureIteratorFromSource<QgsM
     ~QgsMssqlFeatureIterator();
 
     //! reset the iterator to the starting position
-    virtual bool rewind();
+    virtual bool rewind() override;
 
     //! end of iterating: free the resources / lock
-    virtual bool close();
+    virtual bool close() override;
 
   protected:
     void BuildStatement( const QgsFeatureRequest& request );
 
-  private:
+
     //! fetch next feature, return true on success
-    virtual bool fetchFeature( QgsFeature& feature );
+    virtual bool fetchFeature( QgsFeature& feature ) override;
+
+    //! fetch next feature filter expression
+    bool nextFeatureFilterExpression( QgsFeature& f ) override;
+
+  private:
+
+    virtual bool prepareOrderBy( const QList<QgsFeatureRequest::OrderByClause> &orderBys ) override;
 
     // The current database
     QSqlDatabase mDatabase;
@@ -93,11 +101,11 @@ class QgsMssqlFeatureIterator : public QgsAbstractFeatureIteratorFromSource<QgsM
     // The current sql query
     QSqlQuery* mQuery;
 
-    // Use query on provider (no new connection added)
-    bool mUseProviderQuery;
-
     // The current sql statement
     QString mStatement;
+    QString mOrderByClause;
+
+    QString mFallbackStatement;
 
     // Field index of FID column
     long mFidCol;
@@ -107,6 +115,9 @@ class QgsMssqlFeatureIterator : public QgsAbstractFeatureIteratorFromSource<QgsM
 
     // for parsing sql geometries
     QgsMssqlGeometryParser mParser;
+
+    bool mExpressionCompiled;
+    bool mOrderByCompiled;
 };
 
 #endif // QGSMSSQLFEATUREITERATOR_H

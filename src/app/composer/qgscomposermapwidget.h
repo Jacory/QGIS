@@ -33,8 +33,7 @@ class QgsComposerMapWidget: public QgsComposerItemBaseWidget, private Ui::QgsCom
     Q_OBJECT
 
   public:
-
-    QgsComposerMapWidget( QgsComposerMap* composerMap );
+    explicit QgsComposerMapWidget( QgsComposerMap* composerMap );
     virtual ~QgsComposerMapWidget();
 
   public slots:
@@ -45,6 +44,7 @@ class QgsComposerMapWidget: public QgsComposerItemBaseWidget, private Ui::QgsCom
     void on_mViewExtentInCanvasButton_clicked();
     void on_mUpdatePreviewButton_clicked();
     void on_mKeepLayerListCheckBox_stateChanged( int state );
+    void on_mKeepLayerStylesCheckBox_stateChanged( int state );
     void on_mDrawCanvasItemsCheckBox_stateChanged( int state );
     void on_mOverviewFrameMapComboBox_currentIndexChanged( const QString& text );
     void on_mOverviewFrameStyleButton_clicked();
@@ -98,7 +98,21 @@ class QgsComposerMapWidget: public QgsComposerItemBaseWidget, private Ui::QgsCom
     void on_mCheckGridTopSide_toggled( bool checked );
     void on_mCheckGridBottomSide_toggled( bool checked );
 
+    //frame divisions display
+    void on_mFrameDivisionsLeftComboBox_currentIndexChanged( int index );
+    void on_mFrameDivisionsRightComboBox_currentIndexChanged( int index );
+    void on_mFrameDivisionsTopComboBox_currentIndexChanged( int index );
+    void on_mFrameDivisionsBottomComboBox_currentIndexChanged( int index );
+
     void on_mDrawAnnotationGroupBox_toggled( bool state );
+    void on_mAnnotationFormatButton_clicked();
+
+    //annotation display
+    void on_mAnnotationDisplayLeftComboBox_currentIndexChanged( const QString& text );
+    void on_mAnnotationDisplayRightComboBox_currentIndexChanged( const QString& text );
+    void on_mAnnotationDisplayTopComboBox_currentIndexChanged( const QString& text );
+    void on_mAnnotationDisplayBottomComboBox_currentIndexChanged( const QString& text );
+
     //annotation position
     void on_mAnnotationPositionLeftComboBox_currentIndexChanged( const QString& text );
     void on_mAnnotationPositionRightComboBox_currentIndexChanged( const QString& text );
@@ -106,10 +120,10 @@ class QgsComposerMapWidget: public QgsComposerItemBaseWidget, private Ui::QgsCom
     void on_mAnnotationPositionBottomComboBox_currentIndexChanged( const QString& text );
 
     //annotation direction
-    void on_mAnnotationDirectionComboBoxLeft_currentIndexChanged( const QString& text );
-    void on_mAnnotationDirectionComboBoxRight_currentIndexChanged( const QString& text );
-    void on_mAnnotationDirectionComboBoxTop_currentIndexChanged( const QString& text );
-    void on_mAnnotationDirectionComboBoxBottom_currentIndexChanged( const QString& text );
+    void on_mAnnotationDirectionComboBoxLeft_currentIndexChanged( int index );
+    void on_mAnnotationDirectionComboBoxRight_currentIndexChanged( int index );
+    void on_mAnnotationDirectionComboBoxTop_currentIndexChanged( int index );
+    void on_mAnnotationDirectionComboBoxBottom_currentIndexChanged( int index );
 
     void on_mAnnotationFormatComboBox_currentIndexChanged( int index );
     void on_mCoordinatePrecisionSpinBox_valueChanged( int value );
@@ -131,28 +145,28 @@ class QgsComposerMapWidget: public QgsComposerItemBaseWidget, private Ui::QgsCom
     void blockOverviewItemsSignals( bool block );
 
   protected:
-    void showEvent( QShowEvent * event );
+    void showEvent( QShowEvent * event ) override;
 
     void addPageToToolbox( QWidget * widget, const QString& name );
 
-    /**Sets the current composer map values to the GUI elements*/
+    /** Sets the current composer map values to the GUI elements*/
     virtual void updateGuiElements();
 
-    QgsComposerObject::DataDefinedProperty ddPropertyForWidget( QgsDataDefinedButton *widget );
+    QgsComposerObject::DataDefinedProperty ddPropertyForWidget( QgsDataDefinedButton *widget ) override;
 
   protected slots:
-    /**Initializes data defined buttons to current atlas coverage layer*/
+    /** Initializes data defined buttons to current atlas coverage layer*/
     void populateDataDefinedButtons();
 
   private slots:
 
-    /**Sets the GUI elements to the values of mPicture*/
+    /** Sets the GUI elements to the values of mPicture*/
     void setGuiElementValues();
 
-    /**Enables or disables the atlas margin around feature option depending on coverage layer type*/
+    /** Enables or disables the atlas margin around feature option depending on coverage layer type*/
     void atlasLayerChanged( QgsVectorLayer* layer );
 
-    /**Enables or disables the atlas controls when composer atlas is toggled on/off*/
+    /** Enables or disables the atlas controls when composer atlas is toggled on/off*/
     void compositionAtlasToggled( bool atlasEnabled );
 
     void aboutToShowVisibilityPresetsMenu();
@@ -162,37 +176,43 @@ class QgsComposerMapWidget: public QgsComposerItemBaseWidget, private Ui::QgsCom
   private:
     QgsComposerMap* mComposerMap;
 
-    /**Sets extent of composer map from line edits*/
+    /** Sets extent of composer map from line edits*/
     void updateComposerExtentFromGui();
 
-    /**Blocks / unblocks the signals of all GUI elements*/
+    /** Blocks / unblocks the signals of all GUI elements*/
     void blockAllSignals( bool b );
 
+    void handleChangedFrameDisplay( QgsComposerMapGrid::BorderSide border, const QgsComposerMapGrid::DisplayMode mode );
+    void handleChangedAnnotationDisplay( QgsComposerMapGrid::BorderSide border, const QString& text );
     void handleChangedAnnotationPosition( QgsComposerMapGrid::BorderSide border, const QString& text );
-    void handleChangedAnnotationDirection( QgsComposerMapGrid::BorderSide border, const QString& text );
+    void handleChangedAnnotationDirection( QgsComposerMapGrid::BorderSide border, QgsComposerMapGrid::AnnotationDirection direction );
 
+    void insertFrameDisplayEntries( QComboBox* c );
+    void insertAnnotationDisplayEntries( QComboBox* c );
     void insertAnnotationPositionEntries( QComboBox* c );
     void insertAnnotationDirectionEntries( QComboBox* c );
 
+    void initFrameDisplayBox( QComboBox* c, QgsComposerMapGrid::DisplayMode display );
+    void initAnnotationDisplayBox( QComboBox* c, QgsComposerMapGrid::DisplayMode display );
     void initAnnotationPositionBox( QComboBox* c, QgsComposerMapGrid::AnnotationPosition pos );
     void initAnnotationDirectionBox( QComboBox* c, QgsComposerMapGrid::AnnotationDirection dir );
 
     void updateGridLineSymbolMarker( const QgsComposerMapGrid* grid );
     void updateGridMarkerSymbolMarker( const QgsComposerMapGrid* grid );
 
-    /**Updates the map combo box with the current composer map ids*/
+    /** Updates the map combo box with the current composer map ids*/
     void refreshMapComboBox();
 
-    /**Enables/disables grid frame related controls*/
-    void toggleFrameControls( bool frameEnabled , bool frameFillEnabled, bool frameSizeEnabled );
+    /** Enables/disables grid frame related controls*/
+    void toggleFrameControls( bool frameEnabled, bool frameFillEnabled, bool frameSizeEnabled );
 
-    /**Enables or disables the atlas margin and predefined scales radio depending on the atlas coverage layer type*/
+    /** Enables or disables the atlas margin and predefined scales radio depending on the atlas coverage layer type*/
     void toggleAtlasScalingOptionsByLayerType();
 
-    /**Recalculates the bounds for an atlas map when atlas properties change*/
+    /** Recalculates the bounds for an atlas map when atlas properties change*/
     void updateMapForAtlas();
 
-    /**Is there some predefined scales, globally or as project's options ?*/
+    /** Is there some predefined scales, globally or as project's options ?*/
     bool hasPredefinedScales() const;
 
     QListWidgetItem* addGridListItem( const QString& id, const QString& name );

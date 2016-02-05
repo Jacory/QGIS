@@ -3,7 +3,7 @@
      --------------------------------------
     Date                 : 14.5.2014
     Copyright            : (C) 2014 Matthias Kuhn
-    Email                : matthias dot kuhn at gmx dot ch
+    Email                : matthias at opengis dot ch
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -17,13 +17,14 @@
 
 #include "qgsrelationeditorwidget.h"
 #include "qgsattributeeditorcontext.h"
+#include "qgsproject.h"
 
 #include <QWidget>
 
 QgsRelationWidgetWrapper::QgsRelationWidgetWrapper( QgsVectorLayer* vl, const QgsRelation& relation, QWidget* editor, QWidget* parent )
     : QgsWidgetWrapper( vl, editor, parent )
     , mRelation( relation )
-    , mWidget( NULL )
+    , mWidget( nullptr )
 {
 }
 
@@ -35,7 +36,7 @@ QWidget* QgsRelationWidgetWrapper::createWidget( QWidget* parent )
 void QgsRelationWidgetWrapper::setFeature( const QgsFeature& feature )
 {
   if ( mWidget && mRelation.isValid() )
-    mWidget->setRelationFeature( mRelation, feature );
+    mWidget->setFeature( feature );
 }
 
 void QgsRelationWidgetWrapper::initWidget( QWidget* editor )
@@ -46,6 +47,12 @@ void QgsRelationWidgetWrapper::initWidget( QWidget* editor )
   if ( !w )
   {
     w = new QgsRelationEditorWidget( editor );
+    w->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
+    if ( ! editor->layout() )
+    {
+      editor->setLayout( new QGridLayout() );
+    }
+    editor->layout()->addWidget( w );
   }
 
   QgsAttributeEditorContext myContext( QgsAttributeEditorContext( context(), mRelation, QgsAttributeEditorContext::Multiple, QgsAttributeEditorContext::Embed ) );
@@ -56,15 +63,23 @@ void QgsRelationWidgetWrapper::initWidget( QWidget* editor )
   const QgsAttributeEditorContext* ctx = &context();
   do
   {
-    if ( ctx->relation().name() == mRelation.name() && ctx->relationMode() == QgsAttributeEditorContext::Multiple )
+    if ( ctx->relation().name() == mRelation.name() && ctx->formMode() == QgsAttributeEditorContext::Embed )
     {
-      w->setSaveCollapsedState( false );
-      w->setCollapsed( true );
+      w->setVisible( false );
       break;
     }
     ctx = ctx->parentContext();
   }
   while ( ctx );
 
+  QgsRelation nmrel = QgsProject::instance()->relationManager()->relation( config( "nm-rel" ).toString() );
+
+  w->setRelations( mRelation, nmrel );
+
   mWidget = w;
+}
+
+bool QgsRelationWidgetWrapper::valid() const
+{
+  return mWidget;
 }

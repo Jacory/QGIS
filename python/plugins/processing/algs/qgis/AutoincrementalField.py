@@ -25,8 +25,8 @@ __copyright__ = '(C) 2012, Victor Olaya'
 
 __revision__ = '$Format:%H$'
 
-from PyQt4.QtCore import *
-from qgis.core import *
+from PyQt4.QtCore import QVariant
+from qgis.core import QgsField, QgsFeature, QgsGeometry
 from processing.core.GeoAlgorithm import GeoAlgorithm
 from processing.core.parameters import ParameterVector
 from processing.core.outputs import OutputVector
@@ -46,7 +46,7 @@ class AutoincrementalField(GeoAlgorithm):
         fields = vprovider.fields()
         fields.append(QgsField('AUTO', QVariant.Int))
         writer = output.getVectorWriter(fields, vprovider.geometryType(),
-                vlayer.crs())
+                                        vlayer.crs())
         inFeat = QgsFeature()
         outFeat = QgsFeature()
         inGeom = QgsGeometry()
@@ -65,8 +65,8 @@ class AutoincrementalField(GeoAlgorithm):
         del writer
 
     def defineCharacteristics(self):
-        self.name = 'Add autoincremental field'
-        self.group = 'Vector table tools'
-        self.addParameter(ParameterVector(self.INPUT, 'Input layer',
-                          [ParameterVector.VECTOR_TYPE_ANY]))
-        self.addOutput(OutputVector(self.OUTPUT, 'Output layer'))
+        self.name, self.i18n_name = self.trAlgorithm('Add autoincremental field')
+        self.group, self.i18n_group = self.trAlgorithm('Vector table tools')
+        self.addParameter(ParameterVector(self.INPUT,
+                                          self.tr('Input layer'), [ParameterVector.VECTOR_TYPE_ANY]))
+        self.addOutput(OutputVector(self.OUTPUT, self.tr('Incremented')))

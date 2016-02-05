@@ -25,10 +25,11 @@ __copyright__ = '(C) 2012, Victor Olaya'
 
 __revision__ = '$Format:%H$'
 
-from PyQt4 import QtCore, QtGui
+from PyQt4.QtCore import Qt, QObject, QMetaObject, SIGNAL
+from PyQt4.QtGui import QDialogButtonBox, QTextEdit, QLineEdit, QVBoxLayout
+
 from processing.core.GeoAlgorithm import GeoAlgorithm
-from processing.core.GeoAlgorithmExecutionException import \
-        GeoAlgorithmExecutionException
+from processing.core.GeoAlgorithmExecutionException import GeoAlgorithmExecutionException
 from processing.core.parameters import ParameterString
 from processing.core.parameters import ParameterNumber
 from processing.core.outputs import OutputNumber
@@ -41,33 +42,37 @@ NUMBER = 'NUMBER'
 RESULT = 'RESULT'
 AVAILABLE_VARIABLES = 10
 
+
 class CalculatorModelerAlgorithm(GeoAlgorithm):
 
     def defineCharacteristics(self):
         self.showInModeler = True
         self.showInToolbox = False
-        self.name = 'Calculator'
-        self.group = 'Modeler-only tools'
-        self.addParameter(ParameterString(FORMULA, 'Formula', ''))
+        self.name = self.tr('Calculator', 'CalculatorModelerAlgorithm')
+        self.group = self.tr('Modeler-only tools', 'CalculatorModelerAlgorithm')
+        self.addParameter(ParameterString(FORMULA,
+                                          self.tr('Formula', 'CalculatorModelerAlgorithm'), ''))
         for i in range(AVAILABLE_VARIABLES):
             self.addParameter(ParameterNumber(NUMBER
-                              + str(i), 'dummy'))
-        self.addOutput(OutputNumber(RESULT, 'Result'))
+                                              + unicode(i), 'dummy'))
+        self.addOutput(OutputNumber(RESULT,
+                                    self.tr('Result', 'CalculatorModelerAlgorithm')))
 
     def processAlgorithm(self, progress):
         formula = self.getParameterValue(FORMULA)
         for i in range(AVAILABLE_VARIABLES):
-            name = NUMBER + str(i)
+            name = NUMBER + unicode(i)
             num = self.getParameterValue(name)
-            formula = formula.replace(chr(97 + i), str(num))
+            formula = formula.replace(chr(97 + i), unicode(num))
         try:
             result = eval(formula)
             self.setOutputValue(RESULT, result)
         except:
-            raise GeoAlgorithmExecutionException('Wrong formula: ' + formula)
+            raise GeoAlgorithmExecutionException(
+                self.tr('Wrong formula: %s', 'CalculatorModelerAlgorithm') % formula)
 
-    def getCustomModelerParametersDialog(self, modelAlg, algIndex=None):
-        return CalculatorModelerParametersDialog(self, modelAlg, algIndex)
+    def getCustomModelerParametersDialog(self, modelAlg, algName=None):
+        return CalculatorModelerParametersDialog(self, modelAlg, algName)
 
 
 class CalculatorModelerParametersDialog(ModelerParametersDialog):
@@ -76,66 +81,62 @@ class CalculatorModelerParametersDialog(ModelerParametersDialog):
         self.valueItems = {}
         self.dependentItems = {}
         self.resize(650, 450)
-        self.buttonBox = QtGui.QDialogButtonBox()
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtGui.QDialogButtonBox.Cancel
-                | QtGui.QDialogButtonBox.Ok)
-        self.infoText = QtGui.QTextEdit()
+        self.buttonBox = QDialogButtonBox()
+        self.buttonBox.setOrientation(Qt.Horizontal)
+        self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel
+                                          | QDialogButtonBox.Ok)
+        self.infoText = QTextEdit()
         numbers = self.getAvailableValuesOfType(ParameterNumber, OutputNumber)
-        text = ('You can refer to model values in you formula, using'
-                'single-letter variables, as follows:\n')
+        text = self.tr('You can refer to model values in your formula, using '
+                       'single-letter variables, as follows:\n', 'CalculatorModelerParametersDialog')
         ichar = 97
         if numbers:
             for number in numbers:
                 text += chr(ichar) + '->' + self.resolveValueDescription(number) + '\n'
                 ichar += 1
         else:
-            text += "\n - No numerical variables are available."
+            text += self.tr('\n - No numerical variables are available.', 'CalculatorModelerParametersDialog')
         self.infoText.setText(text)
         self.infoText.setEnabled(False)
-        self.formulaText = QtGui.QLineEdit()
+        self.formulaText = QLineEdit()
         if hasattr(self.formulaText, 'setPlaceholderText'):
-            self.formulaText.setPlaceholderText('[Enter your formula here]')
-        self.setWindowTitle("Calculator")
-        self.verticalLayout = QtGui.QVBoxLayout()
+            self.formulaText.setPlaceholderText(self.tr('[Enter your formula here]', 'CalculatorModelerParametersDialog'))
+        if self._algName is not None:
+            alg = self.model.algs[self._algName]
+            self.formulaText.setText(alg.params[FORMULA])
+        self.setWindowTitle(self.tr('Calculator', 'CalculatorModelerParametersDialog'))
+        self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setSpacing(2)
         self.verticalLayout.setMargin(0)
         self.verticalLayout.addWidget(self.infoText)
         self.verticalLayout.addWidget(self.formulaText)
         self.verticalLayout.addWidget(self.buttonBox)
         self.setLayout(self.verticalLayout)
-        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL('accepted()'),
-                               self.okPressed)
-        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL('rejected()'),
-                               self.cancelPressed)
-        QtCore.QMetaObject.connectSlotsByName(self)
-
-
+        QObject.connect(self.buttonBox, SIGNAL('accepted()'), self.okPressed)
+        QObject.connect(self.buttonBox, SIGNAL('rejected()'), self.cancelPressed)
+        QMetaObject.connectSlotsByName(self)
 
     def createAlgorithm(self):
         alg = Algorithm('modelertools:calculator')
         alg.setName(self.model)
-        alg.description = "Calculator"
+        alg.description = self.tr('Calculator', 'CalculatorModelerParametersDialog')
 
         formula = self.formulaText.text()
         alg.params[FORMULA] = formula
 
         for i in xrange(AVAILABLE_VARIABLES):
-            paramname = NUMBER + str(i)
+            paramname = NUMBER + unicode(i)
             alg.params[paramname] = None
 
         numbers = self.getAvailableValuesOfType(ParameterNumber, OutputNumber)
         used = []
         for i in range(len(numbers)):
-            if str(chr(i + 97)) in formula:
+            if unicode(chr(i + 97)) in formula:
                 used.append(numbers[i])
 
         for i, variable in enumerate(used):
-            paramname = NUMBER + str(i)
+            paramname = NUMBER + unicode(i)
             alg.params[paramname] = variable
 
-        #TODO check formula is correct
+        # TODO check formula is correct
         return alg
-
-
-

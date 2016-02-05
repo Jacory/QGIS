@@ -16,13 +16,19 @@
  ***************************************************************************/
 
 #include "qgsnetworkcontentfetcher.h"
+#include "qgsapplication.h"
 #include <QObject>
-#include <QtTest>
+#include <QtTest/QtTest>
 #include <QNetworkReply>
 
-class TestQgsNetworkContentFetcher: public QObject
+class TestQgsNetworkContentFetcher : public QObject
 {
-    Q_OBJECT;
+    Q_OBJECT
+  public:
+    TestQgsNetworkContentFetcher()
+        : mLoaded( false )
+    {}
+
   private slots:
     void initTestCase();// will be called before the first testfunction is executed.
     void cleanupTestCase();// will be called after the last testfunction was executed.
@@ -30,34 +36,31 @@ class TestQgsNetworkContentFetcher: public QObject
     void cleanup();// will be called after every testfunction.
     void fetchEmptyUrl(); //test fetching blank url
     void fetchBadUrl(); //test fetching bad url
-    void fetchUrlContent(); //test fetching url content
+    void fetchEncodedContent(); //test fetching url content encoded as utf-8
 
     void contentLoaded();
 
   private:
-
     bool mLoaded;
-
 };
 
 void TestQgsNetworkContentFetcher::initTestCase()
 {
-
+  QgsApplication::init();
+  QgsApplication::initQgis();
 }
 
 void TestQgsNetworkContentFetcher::cleanupTestCase()
 {
-
+  QgsApplication::exitQgis();
 }
 
 void TestQgsNetworkContentFetcher::init()
 {
-
 }
 
 void TestQgsNetworkContentFetcher::cleanup()
 {
-
 }
 
 void TestQgsNetworkContentFetcher::fetchEmptyUrl()
@@ -89,12 +92,13 @@ void TestQgsNetworkContentFetcher::fetchBadUrl()
   QVERIFY( fetcher.reply()->error() != QNetworkReply::NoError );
 }
 
-void TestQgsNetworkContentFetcher::fetchUrlContent()
+
+void TestQgsNetworkContentFetcher::fetchEncodedContent()
 {
   QgsNetworkContentFetcher fetcher;
-  //test fetching content from the QGIS homepage
+  //test fetching encoded content as string
   mLoaded = false;
-  fetcher.fetchContent( QUrl( "http://www.qgis.org/en/site/" ) );
+  fetcher.fetchContent( QUrl::fromLocalFile( QString( TEST_DATA_DIR ) + '/' +  "encoded_html.html" ) );
   connect( &fetcher, SIGNAL( finished() ), this, SLOT( contentLoaded() ) );
   while ( !mLoaded )
   {
@@ -102,9 +106,9 @@ void TestQgsNetworkContentFetcher::fetchUrlContent()
   }
   QVERIFY( fetcher.reply()->error() == QNetworkReply::NoError );
 
-  //test retrieved content
+  //test retrieved content and check for correct detection of encoding
   QString mFetchedHtml = fetcher.contentAsString();
-  QVERIFY( mFetchedHtml.contains( QString( "QGIS" ) ) );
+  QVERIFY( mFetchedHtml.contains( QChar( 6040 ) ) );
 }
 
 void TestQgsNetworkContentFetcher::contentLoaded()
@@ -113,4 +117,4 @@ void TestQgsNetworkContentFetcher::contentLoaded()
 }
 
 QTEST_MAIN( TestQgsNetworkContentFetcher )
-#include "moc_testqgsnetworkcontentfetcher.cxx"
+#include "testqgsnetworkcontentfetcher.moc"

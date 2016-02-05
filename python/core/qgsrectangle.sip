@@ -1,5 +1,5 @@
 
-/*! \class QgsRectangle
+/** \class QgsRectangle
  * \brief A rectangle specified with double values.
  *
  * QgsRectangle is used to store a rectangle when double values are required.
@@ -17,7 +17,6 @@ class QgsRectangle
     //! Construct a rectangle from two points. The rectangle is normalized after construction.
     QgsRectangle( const QgsPoint & p1, const QgsPoint & p2 );
     //! Construct a rectangle from a QRectF. The rectangle is normalized after construction.
-    //! @note added in 2.0
     QgsRectangle( const QRectF & qRectF );
     //! Copy constructor
     QgsRectangle( const QgsRectangle &other );
@@ -59,6 +58,10 @@ class QgsRectangle
     //! Scale the rectangle around its center point
     void scale( double scaleFactor, const QgsPoint *c = 0 );
     void scale( double scaleFactor, double centerX, double centerY );
+    //! Grow the rectangle by the specified amount
+    void grow( double delta );
+    /** Updates the rectangle to include the specified point */
+    void include( const QgsPoint& p );
     /** Get rectangle enlarged by buffer.
      * @note added in 2.1 */
     QgsRectangle buffer( double width );
@@ -67,16 +70,14 @@ class QgsRectangle
     //! returns true when rectangle intersects with other rectangle
     bool intersects( const QgsRectangle& rect ) const;
     //! return true when rectangle contains other rectangle
-    //! @note added in version 1.1
     bool contains( const QgsRectangle& rect ) const;
     //! return true when rectangle contains a point
-    //! @note added in version 1.3
     bool contains( const QgsPoint &p ) const;
     //! expand the rectangle so that covers both the original rectangle and the given rectangle
     void combineExtentWith( QgsRectangle *rect );
     //! expand the rectangle so that covers both the original rectangle and the given point
     void combineExtentWith( double x, double y );
-    //! test if rectangle is empty
+    //! test if rectangle is empty.
     //! Empty rectangle may still be non-null if it contains valid information (e.g. bounding box of a point)
     bool isEmpty() const;
     //! test if the rectangle is null (all coordinates zero or after call to setMinimal()).
@@ -86,10 +87,8 @@ class QgsRectangle
     //! returns string representation in Wkt form
     QString asWktCoordinates() const;
     //! returns string representation as WKT Polygon
-    //! @note added in 2.0
     QString asWktPolygon() const;
     //! returns a QRectF with same coordinates.
-    //! @note added in 2.0
     QRectF toRectF() const;
     //! returns string representation of form xmin,ymin xmax,ymax
     QString toString( bool automaticPrecision = false ) const;
@@ -97,15 +96,15 @@ class QgsRectangle
     QString toString( int thePrecision ) const;
     //! returns rectangle as a polygon
     QString asPolygon() const;
-    /*! Comparison operator
+    /** Comparison operator
       @return True if rectangles are equal
     */
     bool operator==( const QgsRectangle &r1 ) const;
-    /*! Comparison operator
+    /** Comparison operator
     @return False if rectangles are equal
      */
     bool operator!=( const QgsRectangle &r1 ) const;
-    /** updates rectangle to include passed argument */
+    /** Updates rectangle to include passed argument */
     void unionRect( const QgsRectangle& rect );
 
     /** Returns true if the rectangle has finite boundaries. Will
@@ -113,6 +112,5 @@ class QgsRectangle
     bool isFinite() const;
 
     //! swap x/y
-    //! @note added in 1.9
     void invert();
 };

@@ -14,12 +14,22 @@
  ***************************************************************************/
 
 #include "qgspostgresconnpool.h"
-
 #include "qgspostgresconn.h"
 
+QgsPostgresConnPool QgsPostgresConnPool::sInstance;
 
 QgsPostgresConnPool* QgsPostgresConnPool::instance()
 {
-  static QgsPostgresConnPool sInstance;
   return &sInstance;
 }
+
+QgsPostgresConnPool::QgsPostgresConnPool() : QgsConnectionPool<QgsPostgresConn*, QgsPostgresConnPoolGroup>()
+{
+  QgsDebugCall;
+}
+
+QgsPostgresConnPool::~QgsPostgresConnPool()
+{
+  QgsDebugCall;
+}
+

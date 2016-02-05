@@ -23,10 +23,11 @@ class QgsComposerModel : QAbstractItemModel
 %End
   public:
 
-    /**Constructor
-     * @param composition parent composition
+    /** Constructor
+     * @param composition composition to attach to
+     * @param parent parent object
      */
-    explicit QgsComposerModel( QgsComposition* composition, QObject* parent = 0 );
+    explicit QgsComposerModel( QgsComposition* composition, QObject* parent /TransferThis/ = 0 );
 
     ~QgsComposerModel();
 
@@ -39,39 +40,44 @@ class QgsComposerModel : QAbstractItemModel
     Qt::ItemFlags flags( const QModelIndex & index ) const;
     bool setData( const QModelIndex & index, const QVariant & value, int role );
     QVariant headerData( int section, Qt::Orientation orientation, int role = Qt::DisplayRole ) const;
+    Qt::DropActions supportedDropActions() const;
+    virtual QStringList mimeTypes() const;
+    virtual QMimeData* mimeData( const QModelIndexList &indexes ) const;
+    bool dropMimeData( const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent );
+    bool removeRows( int row, int count, const QModelIndex & parent = QModelIndex() );
 
-    /**Clears all items from z-order list and resets the model
+    /** Clears all items from z-order list and resets the model
      * @note added in QGIS 2.5
      */
     void clear();
 
-    /**Returns the size of the z-order list, which includes items which may
+    /** Returns the size of the z-order list, which includes items which may
      * have been removed from the composition.
      * @returns size of z-order list
      * @note added in QGIS 2.5
      */
     int zOrderListSize() const;
 
-    /**Rebuilds the z-order list, based on the current stacking of items in the composition.
+    /** Rebuilds the z-order list, based on the current stacking of items in the composition.
      * This method should be called after adding multiple items to the composition.
      * @note added in QGIS 2.5
      */
     void rebuildZList();
 
-    /**Adds an item to the top of the composition z stack.
+    /** Adds an item to the top of the composition z stack.
      * @param item item to add. The item must not already exist in the z-order list.
      * @note added in QGIS 2.5
      * @see reorderItemToTop
      */
     void addItemAtTop( QgsComposerItem *item );
 
-    /**Removes an item from the z-order list.
+    /** Removes an item from the z-order list.
      * @param item item to remove
      * @note added in QGIS 2.5
      */
     void removeItem( QgsComposerItem *item );
 
-    /**Moves an item up the z-order list.
+    /** Moves an item up the z-order list.
      * @param item item to move
      * @returns true if item was moved. Returns false if item was not found
      * in z-order list or was already at the top of the z-order list.
@@ -82,7 +88,7 @@ class QgsComposerModel : QAbstractItemModel
      */
     bool reorderItemUp( QgsComposerItem *item );
 
-    /**Moves an item down the z-order list.
+    /** Moves an item down the z-order list.
      * @param item item to move
      * @returns true if item was moved. Returns false if item was not found
      * in z-order list or was already at the bottom of the z-order list.
@@ -93,7 +99,7 @@ class QgsComposerModel : QAbstractItemModel
      */
     bool reorderItemDown( QgsComposerItem *item );
 
-    /**Moves an item to the top of the z-order list.
+    /** Moves an item to the top of the z-order list.
      * @param item item to move
      * @returns true if item was moved. Returns false if item was not found
      * in z-order list or was already at the top of the z-order list.
@@ -104,7 +110,7 @@ class QgsComposerModel : QAbstractItemModel
      */
     bool reorderItemToTop( QgsComposerItem *item );
 
-    /**Moves an item to the bottom of the z-order list.
+    /** Moves an item to the bottom of the z-order list.
      * @param item item to move
      * @returns true if item was moved. Returns false if item was not found
      * in z-order list or was already at the bottom of the z-order list.
@@ -115,7 +121,7 @@ class QgsComposerModel : QAbstractItemModel
      */
     bool reorderItemToBottom( QgsComposerItem *item );
 
-    /**Finds the next composer item above an item. This method only considers
+    /** Finds the next composer item above an item. This method only considers
      * items which are currently in the composition, and ignores items which have been
      * removed from the composition.
      * @param item item to search above
@@ -126,7 +132,7 @@ class QgsComposerModel : QAbstractItemModel
      */
     QgsComposerItem* getComposerItemAbove( QgsComposerItem *item ) const;
 
-    /**Finds the next composer item below an item. This method only considers
+    /** Finds the next composer item below an item. This method only considers
      * items which are currently in the composition, and ignores items which have been
      * removed from the composition.
      * @param item item to search above
@@ -137,14 +143,14 @@ class QgsComposerModel : QAbstractItemModel
      */
     QgsComposerItem* getComposerItemBelow( QgsComposerItem *item ) const;
 
-    /**Returns the item z-order list. This list includes both items currently in the
+    /** Returns the item z-order list. This list includes both items currently in the
      * composition and items which have been removed from the composition.
      * @returns item z-order list
      * @note added in QGIS 2.5
      */
     QList<QgsComposerItem *>* zOrderList();
 
-    /**Marks an item as removed from the composition. This must be called whenever an item
+    /** Marks an item as removed from the composition. This must be called whenever an item
      * has been removed from the composition.
      * @param item to mark as removed from the composition
      * @see setItemRestored
@@ -152,7 +158,7 @@ class QgsComposerModel : QAbstractItemModel
      */
     void setItemRemoved( QgsComposerItem *item );
 
-    /**Restores an item to the composition. This must be called whenever an item removed
+    /** Restores an item to the composition. This must be called whenever an item removed
      * from the composition is restored to the composition.
      * @param item to mark as restored to the composition
      * @see setItemRemoved
@@ -160,33 +166,45 @@ class QgsComposerModel : QAbstractItemModel
      */
     void setItemRestored( QgsComposerItem *item );
 
-    /**Must be called when an item's display name is modified
+    /** Must be called when an item's display name is modified
      * @param item item to update
      * @see updateItemLockStatus
      * @see updateItemVisibility
+     * @see updateItemSelectStatus
      * @note added in QGIS 2.5
      */
     void updateItemDisplayName( QgsComposerItem *item );
 
-    /**Must be called when an item's lock status changes
+    /** Must be called when an item's lock status changes
      * @param item item to update
      * @see updateItemDisplayName
      * @see updateItemVisibility
+     * @see updateItemSelectStatus
      * @note added in QGIS 2.5
      */
     void updateItemLockStatus( QgsComposerItem *item );
 
-    /**Must be called when an item's visibility changes
+    /** Must be called when an item's visibility changes
      * @param item item to update
      * @see updateItemDisplayName
      * @see updateItemLockStatus
+     * @see updateItemSelectStatus
      * @note added in QGIS 2.5
      */
     void updateItemVisibility( QgsComposerItem *item );
 
+    /** Must be called when an item's selection status changes
+     * @param item item to update
+     * @see updateItemDisplayName
+     * @see updateItemVisibility
+     * @see updateItemLockStatus
+     * @note added in QGIS 2.5
+     */
+    void updateItemSelectStatus( QgsComposerItem *item );
+
   public slots:
 
-    /**Sets an item as the current selection from a QModelIndex
+    /** Sets an item as the current selection from a QModelIndex
      * @param index QModelIndex of item to set as selected
      * @note added in QGIS 2.5
      */

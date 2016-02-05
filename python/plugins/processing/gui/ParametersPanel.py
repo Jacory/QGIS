@@ -10,8 +10,7 @@
     Email                : volayaf at gmail dot com
                            otb at c-s dot fr (CS SI)
     Contributors         : Victor Olaya
-                           Alexia Mondot (CS SI) - managing the new parameter
-                           ParameterMultipleExternalInput
+
 ***************************************************************************
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
@@ -33,8 +32,11 @@ __revision__ = '$Format:%H$'
 import os
 import locale
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from qgis.core import *
+
+from PyQt4 import uic
+from PyQt4.QtCore import QCoreApplication, QVariant
+from PyQt4.QtGui import QWidget, QLayout, QVBoxLayout, QHBoxLayout, QToolButton, QIcon, QLabel, QCheckBox, QComboBox, QLineEdit, QPlainTextEdit
 
 from processing.core.ProcessingConfig import ProcessingConfig
 
@@ -47,7 +49,9 @@ from processing.gui.NumberInputPanel import NumberInputPanel
 from processing.gui.ExtentSelectionPanel import ExtentSelectionPanel
 from processing.gui.FileSelectionPanel import FileSelectionPanel
 from processing.gui.CrsSelectionPanel import CrsSelectionPanel
-from processing.gui.MultipleFileInputPanel import MultipleFileInputPanel
+from processing.gui.GeometryPredicateSelectionPanel import \
+    GeometryPredicateSelectionPanel
+
 from processing.core.parameters import ParameterRaster
 from processing.core.parameters import ParameterVector
 from processing.core.parameters import ParameterTable
@@ -62,19 +66,32 @@ from processing.core.parameters import ParameterExtent
 from processing.core.parameters import ParameterFile
 from processing.core.parameters import ParameterCrs
 from processing.core.parameters import ParameterString
+from processing.core.parameters import ParameterGeometryPredicate
+
 from processing.core.outputs import OutputRaster
 from processing.core.outputs import OutputTable
 from processing.core.outputs import OutputVector
 
 from processing.tools import dataobjects
 
+pluginPath = os.path.split(os.path.dirname(__file__))[0]
+WIDGET, BASE = uic.loadUiType(
+    os.path.join(pluginPath, 'ui', 'widgetParametersPanel.ui'))
 
-class ParametersPanel(QWidget):
 
-    NOT_SELECTED = '[Not selected]'
+class ParametersPanel(BASE, WIDGET):
+
+    NOT_SELECTED = QCoreApplication.translate('ParametersPanel', '[Not selected]')
 
     def __init__(self, parent, alg):
         super(ParametersPanel, self).__init__(None)
+        self.setupUi(self)
+
+        self.grpAdvanced.hide()
+
+        self.layoutMain = self.scrollAreaWidgetContents.layout()
+        self.layoutAdvanced = self.grpAdvanced.layout()
+
         self.parent = parent
         self.alg = alg
         self.valueItems = {}
@@ -83,36 +100,96 @@ class ParametersPanel(QWidget):
         self.checkBoxes = {}
         self.dependentItems = {}
         self.iterateButtons = {}
-        self.showAdvanced = False
-        self.initGUI()
 
-    def initGUI(self):
-        tooltips = self.alg.getParameterDescriptions()
-        self.setSizePolicy(QSizePolicy.Expanding,
-                           QSizePolicy.Expanding)
-        self.verticalLayout = QVBoxLayout()
-        self.verticalLayout.setSpacing(5)
-        self.verticalLayout.setMargin(20)
+        self.initWidgets()
+
+    def layerAdded(self, layer):
+        if layer.type() == QgsMapLayer.VectorLayer:
+            for param in self.alg.parameters:
+                if param.hidden:
+                    continue
+                if isinstance(param, ParameterVector):
+                    if dataobjects.canUseVectorLayer(layer, param.shapetype):
+                        widget = self.valueItems[param.name]
+                        if isinstance(widget, InputLayerSelectorPanel):
+                            widget = widget.cmbText
+                        widget.addItem(self.getExtendedLayerName(layer), layer)
+        elif layer.type() == QgsMapLayer.RasterLayer and dataobjects.canUseRasterLayer(layer):
+            for param in self.alg.parameters:
+                if param.hidden:
+                    continue
+                if isinstance(param, ParameterRaster):
+                    widget = self.valueItems[param.name].cmbText
+                    widget.addItem(self.getExtendedLayerName(layer), layer)
+
+        self.updateMultipleInputs()
+
+    def layersWillBeRemoved(self, layers):
+        for layer in layers:
+            self.layerRemoved(layer)
+
+    def layerRemoved(self, layer):
+        layer = QgsMapLayerRegistry.instance().mapLayer(layer)
+        widget = None
+        if layer.type() == QgsMapLayer.VectorLayer:
+            for param in self.alg.parameters:
+                if param.hidden:
+                    continue
+                if isinstance(param, ParameterVector):
+                    widget = self.valueItems[param.name]
+                    if isinstance(widget, InputLayerSelectorPanel):
+                        widget = widget.cmbText
+
+        elif layer.type() == QgsMapLayer.RasterLayer:
+            for param in self.alg.parameters:
+                if param.hidden:
+                    continue
+                if isinstance(param, ParameterRaster):
+                    widget = self.valueItems[param.name].cmbText
+
+        if widget is not None:
+            idx = widget.findData(layer)
+            if idx != -1:
+                widget.removeItem(idx)
+
+        self.updateMultipleInputs()
+
+    def updateMultipleInputs(self):
+        for param in self.alg.parameters:
+            if isinstance(param, ParameterMultipleInput) and param.datatype != ParameterMultipleInput.TYPE_FILE:
+                if param.datatype == ParameterMultipleInput.TYPE_RASTER:
+                    options = dataobjects.getRasterLayers(sorting=False)
+                elif param.datatype == ParameterMultipleInput.TYPE_VECTOR_ANY:
+                    options = dataobjects.getVectorLayers(sorting=False)
+                else:
+                    options = dataobjects.getVectorLayers([param.datatype], sorting=False)
+                opts = [self.getExtendedLayerName(opt) for opt in options]
+                widget = self.valueItems[param.name]
+                widget.updateForOptions(opts)
+
+    def initWidgets(self):
+        #tooltips = self.alg.getParameterDescriptions()
+
+        # If there are advanced parameters — show corresponding groupbox
         for param in self.alg.parameters:
             if param.isAdvanced:
-                self.advancedButton = QPushButton()
-                self.advancedButton.setText('Show advanced parameters')
-                self.advancedButton.setMaximumWidth(250)
-                self.advancedButton.clicked.connect(
-                    self.showAdvancedParametersClicked)
-                self.verticalLayout.addWidget(self.advancedButton)
+                self.grpAdvanced.show()
                 break
+
+        # Create widgets and put them in layouts
         for param in self.alg.parameters:
             if param.hidden:
                 continue
+
             desc = param.description
             if isinstance(param, ParameterExtent):
-                desc += ' (xmin, xmax, ymin, ymax)'
+                desc += self.tr(' (xmin, xmax, ymin, ymax)')
             try:
                 if param.optional:
-                    desc += ' [optional]'
+                    desc += self.tr(' [optional]')
             except:
                 pass
+
             widget = self.getWidgetFromParameter(param)
             self.valueItems[param.name] = widget
 
@@ -123,71 +200,59 @@ class ParametersPanel(QWidget):
                 layout.setMargin(0)
                 layout.addWidget(widget)
                 button = QToolButton()
-                icon = QIcon(os.path.dirname(__file__)
-                                   + '/../images/iterate.png')
+                icon = QIcon(os.path.join(pluginPath, 'images', 'iterate.png'))
                 button.setIcon(icon)
-                button.setToolTip('Iterate over this layer')
+                button.setToolTip(self.tr('Iterate over this layer'))
                 button.setCheckable(True)
-                button.setMaximumWidth(30)
-                button.setMaximumHeight(30)
                 layout.addWidget(button)
                 self.iterateButtons[param.name] = button
                 button.toggled.connect(self.buttonToggled)
                 widget = QWidget()
                 widget.setLayout(layout)
 
-            if param.name in tooltips.keys():
-                tooltip = tooltips[param.name]
-            else:
-                tooltip = param.description
-
-            widget.setToolTip(tooltip)
+            #~ if param.name in tooltips.keys():
+                #~ tooltip = tooltips[param.name]
+            #~ else:
+                #~ tooltip = param.description
+            #~ widget.setToolTip(tooltip)
 
             if isinstance(param, ParameterBoolean):
                 widget.setText(desc)
                 if param.isAdvanced:
-                    widget.setVisible(self.showAdvanced)
-                    self.widgets[param.name] = widget
+                    self.layoutAdvanced.addWidget(widget)
+                else:
+                    self.layoutMain.insertWidget(
+                        self.layoutMain.count() - 2, widget)
             else:
                 label = QLabel(desc)
-                label.setToolTip(tooltip)
+                #label.setToolTip(tooltip)
                 self.labels[param.name] = label
                 if param.isAdvanced:
-                    label.setVisible(self.showAdvanced)
-                    widget.setVisible(self.showAdvanced)
-                    self.widgets[param.name] = widget
-                self.verticalLayout.addWidget(label)
+                    self.layoutAdvanced.addWidget(label)
+                    self.layoutAdvanced.addWidget(widget)
+                else:
+                    self.layoutMain.insertWidget(
+                        self.layoutMain.count() - 2, label)
+                    self.layoutMain.insertWidget(
+                        self.layoutMain.count() - 2, widget)
 
-            self.verticalLayout.addWidget(widget)
+            self.widgets[param.name] = widget
 
         for output in self.alg.outputs:
             if output.hidden:
                 continue
+
             label = QLabel(output.description)
             widget = OutputSelectionPanel(output, self.alg)
-            self.verticalLayout.addWidget(label)
-            self.verticalLayout.addWidget(widget)
+            self.layoutMain.insertWidget(self.layoutMain.count() - 1, label)
+            self.layoutMain.insertWidget(self.layoutMain.count() - 1, widget)
             if isinstance(output, (OutputRaster, OutputVector, OutputTable)):
                 check = QCheckBox()
-                check.setText('Open output file after running algorithm')
+                check.setText(self.tr('Open output file after running algorithm'))
                 check.setChecked(True)
-                self.verticalLayout.addWidget(check)
+                self.layoutMain.insertWidget(self.layoutMain.count() - 1, check)
                 self.checkBoxes[output.name] = check
             self.valueItems[output.name] = widget
-
-        self.verticalLayout.addStretch(1000)
-        self.setLayout(self.verticalLayout)
-
-    def showAdvancedParametersClicked(self):
-        self.showAdvanced = not self.showAdvanced
-        if self.showAdvanced:
-            self.advancedButton.setText('Hide advanced parameters')
-        else:
-            self.advancedButton.setText('Show advanced parameters')
-        for param in self.alg.parameters:
-            if param.isAdvanced:
-                self.labels[param.name].setVisible(self.showAdvanced)
-                self.widgets[param.name].setVisible(self.showAdvanced)
 
     def buttonToggled(self, value):
         if value:
@@ -199,8 +264,8 @@ class ParametersPanel(QWidget):
     def getExtendedLayerName(self, layer):
         authid = layer.crs().authid()
         if ProcessingConfig.getSetting(ProcessingConfig.SHOW_CRS_DEF) \
-            and authid is not None:
-            return layer.name() + ' [' + str(authid) + ']'
+                and authid is not None:
+            return u'{} [{}]'.format(layer.name(), authid)
         else:
             return layer.name()
 
@@ -219,6 +284,7 @@ class ParametersPanel(QWidget):
             if self.somethingDependsOnThisParameter(param) or self.alg.allowOnlyOpenedLayers:
                 item = QComboBox()
                 layers = dataobjects.getVectorLayers(param.shapetype)
+                layers.sort(key=lambda lay: lay.name())
                 if param.optional:
                     item.addItem(self.NOT_SELECTED, None)
                 for layer in layers:
@@ -233,7 +299,7 @@ class ParametersPanel(QWidget):
                 for layer in layers:
                     items.append((self.getExtendedLayerName(layer), layer))
                 # if already set, put first in list
-                for i,(name,layer) in enumerate(items):
+                for i, (name, layer) in enumerate(items):
                     if layer and layer.source() == param.value:
                         items.insert(0, items.pop(i))
                 item = InputLayerSelectorPanel(items, param)
@@ -255,7 +321,7 @@ class ParametersPanel(QWidget):
                 for layer in layers:
                     items.append((layer.name(), layer))
                 # if already set, put first in list
-                for i,(name,layer) in enumerate(items):
+                for i, (name, layer) in enumerate(items):
                     if layer and layer.source() == param.value:
                         items.insert(0, items.pop(i))
                 item = InputLayerSelectorPanel(items, param)
@@ -280,12 +346,13 @@ class ParametersPanel(QWidget):
                 layers = dataobjects.getTables()
             if len(layers) > 0:
                 if param.optional:
-                    item.addItem("[not set]")
+                    item.addItem(self.tr('[not set]'))
                 item.addItems(self.getFields(layers[0], param.datatype))
         elif isinstance(param, ParameterSelection):
             item = QComboBox()
             item.addItems(param.options)
-            item.setCurrentIndex(param.default)
+            if param.default:
+                item.setCurrentIndex(param.default)
         elif isinstance(param, ParameterFixedTable):
             item = FixedTablePanel(param)
         elif isinstance(param, ParameterRange):
@@ -294,17 +361,15 @@ class ParametersPanel(QWidget):
             item = FileSelectionPanel(param.isFolder, param.ext)
         elif isinstance(param, ParameterMultipleInput):
             if param.datatype == ParameterMultipleInput.TYPE_FILE:
-                item = MultipleFileInputPanel()
+                item = MultipleInputPanel(datatype=ParameterMultipleInput.TYPE_FILE)
             else:
                 if param.datatype == ParameterMultipleInput.TYPE_RASTER:
-                    options = dataobjects.getRasterLayers()
+                    options = dataobjects.getRasterLayers(sorting=False)
                 elif param.datatype == ParameterMultipleInput.TYPE_VECTOR_ANY:
-                    options = dataobjects.getVectorLayers()
+                    options = dataobjects.getVectorLayers(sorting=False)
                 else:
-                    options = dataobjects.getVectorLayers([param.datatype])
-                opts = []
-                for opt in options:
-                    opts.append(self.getExtendedLayerName(opt))
+                    options = dataobjects.getVectorLayers([param.datatype], sorting=False)
+                opts = [self.getExtendedLayerName(opt) for opt in options]
                 item = MultipleInputPanel(opts)
         elif isinstance(param, ParameterNumber):
             item = NumberInputPanel(param.default, param.min, param.max,
@@ -317,17 +382,37 @@ class ParametersPanel(QWidget):
             if param.multiline:
                 verticalLayout = QVBoxLayout()
                 verticalLayout.setSizeConstraint(
-                        QLayout.SetDefaultConstraint)
+                    QLayout.SetDefaultConstraint)
                 textEdit = QPlainTextEdit()
-                textEdit.setPlainText(param.default)
+                if param.default:
+                    textEdit.setPlainText(param.default)
                 verticalLayout.addWidget(textEdit)
                 item = textEdit
             else:
                 item = QLineEdit()
-                item.setText(str(param.default))
+                if param.default:
+                    item.setText(unicode(param.default))
+        elif isinstance(param, ParameterGeometryPredicate):
+            item = GeometryPredicateSelectionPanel(param.enabledPredicates)
+            if param.left:
+                widget = self.valueItems[param.left]
+                if isinstance(widget, InputLayerSelectorPanel):
+                    widget = widget.cmbText
+                widget.currentIndexChanged.connect(item.onLeftLayerChange)
+                item.leftLayer = widget.itemData(widget.currentIndex())
+            if param.right:
+                widget = self.valueItems[param.right]
+                if isinstance(widget, InputLayerSelectorPanel):
+                    widget = widget.cmbText
+                widget.currentIndexChanged.connect(item.onRightLayerChange)
+                item.rightLayer = widget.itemData(widget.currentIndex())
+            item.updatePredicates()
+            if param.default:
+                item.setValue(param.default)
         else:
             item = QLineEdit()
-            item.setText(str(param.default))
+            if param.default:
+                item.setText(unicode(param.default))
 
         return item
 
@@ -335,7 +420,7 @@ class ParametersPanel(QWidget):
         sender = self.sender()
         if not isinstance(sender, QComboBox):
             return
-        if not sender.name in self.dependentItems:
+        if sender.name not in self.dependentItems:
             return
         layer = sender.itemData(sender.currentIndex())
         children = self.dependentItems[sender.name]
@@ -343,16 +428,17 @@ class ParametersPanel(QWidget):
             widget = self.valueItems[child]
             widget.clear()
             if self.alg.getParameterFromName(child).optional:
-                widget.addItem("[not set]")
+                widget.addItem(self.tr('[not set]'))
             widget.addItems(self.getFields(layer,
-                            self.alg.getParameterFromName(child).datatype))
+                                           self.alg.getParameterFromName(child).datatype))
 
     def getFields(self, layer, datatype):
         fieldTypes = []
         if datatype == ParameterTableField.DATA_TYPE_STRING:
             fieldTypes = [QVariant.String]
         elif datatype == ParameterTableField.DATA_TYPE_NUMBER:
-            fieldTypes = [QVariant.Int, QVariant.Double]
+            fieldTypes = [QVariant.Int, QVariant.Double, QVariant.ULongLong,
+                          QVariant.UInt]
 
         fieldNames = set()
         for field in layer.pendingFields():
@@ -366,29 +452,3 @@ class ParametersPanel(QWidget):
                 if param.parent == parent.name:
                     return True
         return False
-
-    def setTableContent(self):
-        params = [parm for parm in self.alg.parameters if not parm.hidden]
-        outputs = [output for output in self.alg.outputs if not output.hidden]
-        numParams = len(params)
-        numOutputs = len(outputs)
-        self.tableWidget.setRowCount(numParams + numOutputs)
-
-        for i, param in enumerate(params):
-            item = QTableWidgetItem(param.description)
-            item.setFlags(Qt.ItemIsEnabled)
-            self.tableWidget.setItem(i, 0, item)
-            item = self.getWidgetFromParameter(param)
-            self.valueItems[param.name] = item
-            self.tableWidget.setCellWidget(i, 1, item)
-            self.tableWidget.setRowHeight(i, 22)
-
-        for i, output in enumerate(outputs):
-            item = QTableWidgetItem(output.description + '<'
-                    + output.__module__.split('.')[-1] + '>')
-            item.setFlags(Qt.ItemIsEnabled)
-            self.tableWidget.setItem(i, 0, item)
-            item = OutputSelectionPanel(output, self.alg)
-            self.valueItems[output.name] = item
-            self.tableWidget.setCellWidget(i, 1, item)
-            self.tableWidget.setRowHeight(i, 22)

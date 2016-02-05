@@ -21,9 +21,10 @@
 #include "qgsmessagelog.h"
 #include "qgsapplication.h"
 #include <QNetworkReply>
+#include <QTextCodec>
 
 QgsNetworkContentFetcher::QgsNetworkContentFetcher()
-    : mReply( 0 )
+    : mReply( nullptr )
     , mContentLoaded( false )
 {
 
@@ -31,16 +32,32 @@ QgsNetworkContentFetcher::QgsNetworkContentFetcher()
 
 QgsNetworkContentFetcher::~QgsNetworkContentFetcher()
 {
-  delete mReply;
+  if ( mReply && mReply->isRunning() )
+  {
+    //cancel running request
+    mReply->abort();
+  }
+  if ( mReply )
+  {
+    mReply->deleteLater();
+  }
 }
 
-void QgsNetworkContentFetcher::fetchContent( const QUrl url )
+void QgsNetworkContentFetcher::fetchContent( const QUrl& url )
 {
   QUrl nextUrlToFetch = url;
   mContentLoaded = false;
 
   //get contents
   QNetworkRequest request( nextUrlToFetch );
+
+  if ( mReply )
+  {
+    //cancel any in progress requests
+    mReply->abort();
+    mReply->deleteLater();
+    mReply = nullptr;
+  }
 
   mReply = QgsNetworkAccessManager::instance()->get( request );
   connect( mReply, SIGNAL( finished() ), this, SLOT( contentLoaded() ) );
@@ -50,7 +67,7 @@ QNetworkReply *QgsNetworkContentFetcher::reply()
 {
   if ( !mContentLoaded )
   {
-    return 0;
+    return nullptr;
   }
 
   return mReply;
@@ -64,7 +81,49 @@ QString QgsNetworkContentFetcher::contentAsString() const
   }
 
   QByteArray array = mReply->readAll();
-  return QString( array );
+
+  //correctly encode reply as unicode
+  QTextCodec* codec = codecForHtml( array );
+  return codec->toUnicode( array );
+}
+
+QTextCodec* QgsNetworkContentFetcher::codecForHtml( QByteArray& array ) const
+{
+  //QTextCodec::codecForHtml fails to detect "<meta charset="utf-8"/>" type tags
+  //see https://bugreports.qt-project.org/browse/QTBUG-41011
+  //so test for that ourselves
+
+  //basic check
+  QTextCodec* codec = QTextCodec::codecForUtfText( array, nullptr );
+  if ( codec )
+  {
+    return codec;
+  }
+
+  //check for meta charset tag
+  QByteArray header = array.left( 1024 ).toLower();
+  int pos = header.indexOf( "meta charset=" );
+  if ( pos != -1 )
+  {
+    pos += int( strlen( "meta charset=" ) ) + 1;
+    int pos2 = header.indexOf( '\"', pos );
+    QByteArray cs = header.mid( pos, pos2 - pos );
+    codec = QTextCodec::codecForName( cs );
+    if ( codec )
+    {
+      return codec;
+    }
+  }
+
+  //fallback to QTextCodec::codecForHtml
+  codec = QTextCodec::codecForHtml( array, codec );
+  if ( codec )
+  {
+    return codec;
+  }
+
+  //no luck, default to utf-8
+  return QTextCodec::codecForName( "UTF-8" );
 }
 
 void QgsNetworkContentFetcher::contentLoaded( bool ok )
@@ -73,7 +132,7 @@ void QgsNetworkContentFetcher::contentLoaded( bool ok )
 
   if ( mReply->error() != QNetworkReply::NoError )
   {
-    QgsMessageLog::logMessage( tr( "HTTP fetch %1 failed with error %2" ).arg( mReply->url().toString() ).arg( mReply->errorString() ) );
+    QgsMessageLog::logMessage( tr( "HTTP fetch %1 failed with error %2" ).arg( mReply->url().toString(), mReply->errorString() ) );
     mContentLoaded = true;
     emit finished();
     return;
@@ -86,7 +145,7 @@ void QgsNetworkContentFetcher::contentLoaded( bool ok )
     QVariant status = mReply->attribute( QNetworkRequest::HttpStatusCodeAttribute );
     if ( !status.isNull() && status.toInt() >= 400 )
     {
-      QgsMessageLog::logMessage( tr( "HTTP fetch %1 failed with error %2" ).arg( mReply->url().toString() ).arg( status.toString() ) );
+      QgsMessageLog::logMessage( tr( "HTTP fetch %1 failed with error %2" ).arg( mReply->url().toString(), status.toString() ) );
     }
     mContentLoaded = true;
     emit finished();

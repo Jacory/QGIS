@@ -30,7 +30,7 @@
 #include <QMessageBox>
 #include <QIcon>
 
-QgsComposerModel::QgsComposerModel( QgsComposition* composition , QObject *parent )
+QgsComposerModel::QgsComposerModel( QgsComposition* composition, QObject *parent )
     : QAbstractItemModel( parent )
     , mComposition( composition )
 {
@@ -46,7 +46,7 @@ QgsComposerItem* QgsComposerModel::itemFromIndex( const QModelIndex &index ) con
   //try to return the QgsComposerItem corresponding to a QModelIndex
   if ( !index.isValid() )
   {
-    return 0;
+    return nullptr;
   }
 
   QgsComposerItem * item = static_cast<QgsComposerItem*>( index.internalPointer() );
@@ -183,11 +183,7 @@ QVariant QgsComposerModel::data( const QModelIndex &index, int role ) const
         boldFont.setBold( true );
         return boldFont;
       }
-      else
-      {
-        return QVariant();
-      }
-      break;
+      return QVariant();
 
     default:
       return QVariant();
@@ -248,11 +244,7 @@ QVariant QgsComposerModel::headerData( int section, Qt::Orientation orientation,
       {
         return tr( "Item" );
       }
-      else
-      {
-        return QVariant();
-      }
-      break;
+      return QVariant();
     }
 
     case Qt::DecorationRole:
@@ -265,11 +257,8 @@ QVariant QgsComposerModel::headerData( int section, Qt::Orientation orientation,
       {
         return qVariantFromValue( lockIcon );
       }
-      else
-      {
-        return QVariant();
-      }
-      break;
+
+      return QVariant();
     }
 
     case Qt::TextAlignmentRole:
@@ -300,7 +289,7 @@ QMimeData* QgsComposerModel::mimeData( const QModelIndexList &indexes ) const
 
   QDataStream stream( &encodedData, QIODevice::WriteOnly );
 
-  foreach ( const QModelIndex &index, indexes )
+  Q_FOREACH ( const QModelIndex &index, indexes )
   {
     if ( index.isValid() && index.column() == ItemId )
     {
@@ -318,7 +307,7 @@ QMimeData* QgsComposerModel::mimeData( const QModelIndexList &indexes ) const
   return mimeData;
 }
 
-bool zOrderDescending( QgsComposerItem* item1 , QgsComposerItem* item2 )
+bool zOrderDescending( QgsComposerItem* item1, QgsComposerItem* item2 )
 {
   return item1->zValue() > item2->zValue();
 }
@@ -487,17 +476,16 @@ void QgsComposerModel::rebuildSceneItemList()
 {
   //step through the z list and rebuild the items in scene list,
   //emitting signals as required
-  QList<QgsComposerItem*>::iterator zListIt = mItemZList.begin();
   int row = 0;
-  for ( ; zListIt != mItemZList.end(); ++zListIt )
+  Q_FOREACH ( QgsComposerItem* item, mItemZList )
   {
-    if ((( *zListIt )->type() == QgsComposerItem::ComposerPaper ) || ( *zListIt )->isRemoved() )
+    if (( item->type() == QgsComposerItem::ComposerPaper ) || item->isRemoved() )
     {
       //item not in scene, skip it
       continue;
     }
 
-    int sceneListPos = mItemsInScene.indexOf( *zListIt );
+    int sceneListPos = mItemsInScene.indexOf( item );
     if ( sceneListPos == row )
     {
       //already in list in correct position, nothing to do
@@ -508,14 +496,14 @@ void QgsComposerModel::rebuildSceneItemList()
       //in list, but in wrong spot
       beginMoveRows( QModelIndex(), sceneListPos, sceneListPos, QModelIndex(), row );
       mItemsInScene.removeAt( sceneListPos );
-      mItemsInScene.insert( row, *zListIt );
+      mItemsInScene.insert( row, item );
       endMoveRows();
     }
     else
     {
       //needs to be inserted into list
       beginInsertRows( QModelIndex(), row, row );
-      mItemsInScene.insert( row, *zListIt );
+      mItemsInScene.insert( row, item );
       endInsertRows();
     }
     row++;
@@ -560,7 +548,7 @@ void QgsComposerModel::removeItem( QgsComposerItem * item )
 
   //remove item from model
   int row = itemIndex.row();
-  beginRemoveRows( QModelIndex() , row, row );
+  beginRemoveRows( QModelIndex(), row, row );
   mItemZList.removeAt( pos );
   refreshItemsInScene();
   endRemoveRows();
@@ -590,7 +578,7 @@ void QgsComposerModel::setItemRemoved( QgsComposerItem *item )
 
   //removing item
   int row = itemIndex.row();
-  beginRemoveRows( QModelIndex() , row, row );
+  beginRemoveRows( QModelIndex(), row, row );
   item->setIsRemoved( true );
   refreshItemsInScene();
   endRemoveRows();
@@ -693,7 +681,12 @@ void QgsComposerModel::updateItemSelectStatus( QgsComposerItem *item )
 
 bool QgsComposerModel::reorderItemUp( QgsComposerItem *item )
 {
-  if ( mItemsInScene.first() == item )
+  if ( !item )
+  {
+    return false;
+  }
+
+  if ( mItemsInScene.at( 0 ) == item )
   {
     //item is already topmost item present in scene, nothing to do
     return false;
@@ -738,6 +731,11 @@ bool QgsComposerModel::reorderItemUp( QgsComposerItem *item )
 
 bool QgsComposerModel::reorderItemDown( QgsComposerItem *item )
 {
+  if ( !item )
+  {
+    return false;
+  }
+
   if ( mItemsInScene.last() == item )
   {
     //item is already lowest item present in scene, nothing to do
@@ -783,7 +781,12 @@ bool QgsComposerModel::reorderItemDown( QgsComposerItem *item )
 
 bool QgsComposerModel::reorderItemToTop( QgsComposerItem *item )
 {
-  if ( mItemsInScene.first() == item )
+  if ( !item || !mItemsInScene.contains( item ) )
+  {
+    return false;
+  }
+
+  if ( mItemsInScene.at( 0 ) == item )
   {
     //item is already topmost item present in scene, nothing to do
     return false;
@@ -814,6 +817,11 @@ bool QgsComposerModel::reorderItemToTop( QgsComposerItem *item )
 
 bool QgsComposerModel::reorderItemToBottom( QgsComposerItem *item )
 {
+  if ( !item || !mItemsInScene.contains( item ) )
+  {
+    return false;
+  }
+
   if ( mItemsInScene.last() == item )
   {
     //item is already lowest item present in scene, nothing to do
@@ -861,7 +869,7 @@ QgsComposerItem* QgsComposerModel::getComposerItemAbove( QgsComposerItem* item )
       it.previous();
     }
   }
-  return 0;
+  return nullptr;
 }
 
 QgsComposerItem* QgsComposerModel::getComposerItemBelow( QgsComposerItem* item ) const
@@ -880,7 +888,7 @@ QgsComposerItem* QgsComposerModel::getComposerItemBelow( QgsComposerItem* item )
       it.next();
     }
   }
-  return 0;
+  return nullptr;
 }
 
 QList<QgsComposerItem *>* QgsComposerModel::zOrderList()
@@ -895,7 +903,7 @@ Qt::ItemFlags QgsComposerModel::flags( const QModelIndex & index ) const
 
   if ( ! index.isValid() )
   {
-    return flags | Qt::ItemIsDropEnabled;;
+    return flags | Qt::ItemIsDropEnabled;
   }
 
   switch ( index.column() )
@@ -910,7 +918,7 @@ Qt::ItemFlags QgsComposerModel::flags( const QModelIndex & index ) const
   }
 }
 
-QModelIndex QgsComposerModel::indexForItem( QgsComposerItem *item , const int column )
+QModelIndex QgsComposerModel::indexForItem( QgsComposerItem *item, const int column )
 {
   if ( !item )
   {

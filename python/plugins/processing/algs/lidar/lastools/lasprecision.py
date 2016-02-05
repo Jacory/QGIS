@@ -33,22 +33,25 @@ from LAStoolsAlgorithm import LAStoolsAlgorithm
 
 from processing.core.outputs import OutputFile
 
+
 class lasprecision(LAStoolsAlgorithm):
 
     OUTPUT = "OUTPUT"
 
     def defineCharacteristics(self):
-        self.name = "lasprecision"
-        self.group = "LAStools"
+        self.name, self.i18n_name = self.trAlgorithm('lasprecision')
+        self.group, self.i18n_group = self.trAlgorithm('LAStools')
         self.addParametersVerboseGUI()
         self.addParametersPointInputGUI()
-        self.addOutput(OutputFile(lasprecision.OUTPUT, "Output ASCII file"))
+        self.addOutput(OutputFile(lasprecision.OUTPUT, self.tr("Output ASCII file")))
+        self.addParametersAdditionalGUI()
 
     def processAlgorithm(self, progress):
-        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lasprecision.exe")]
+        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lasprecision")]
         self.addParametersVerboseCommands(commands)
         self.addParametersPointInputCommands(commands)
         commands.append("-o")
         commands.append(self.getOutputValue(lasprecision.OUTPUT))
+        self.addParametersAdditionalCommands(commands)
 
         LAStoolsUtils.runLAStools(commands, progress)

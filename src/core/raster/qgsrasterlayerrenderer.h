@@ -30,6 +30,7 @@ class QgsRenderContext;
  * Implementation of threaded rendering for raster layers.
  *
  * @note added in 2.4
+ * @note not available in Python bindings
  */
 class QgsRasterLayerRenderer : public QgsMapLayerRenderer
 {
@@ -37,7 +38,7 @@ class QgsRasterLayerRenderer : public QgsMapLayerRenderer
     QgsRasterLayerRenderer( QgsRasterLayer* layer, QgsRenderContext& rendererContext );
     ~QgsRasterLayerRenderer();
 
-    virtual bool render();
+    virtual bool render() override;
 
   protected:
 

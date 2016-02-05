@@ -20,6 +20,8 @@
 #include "qgscoordinatetransform.h"
 
 class QgsGeometry;
+class QgsAbstractGeometryV2;
+class QgsCurveV2;
 
 /** \ingroup core
 General purpose distance and area calculator.
@@ -46,11 +48,27 @@ class CORE_EXPORT QgsDistanceArea
     //! Assignment operator
     QgsDistanceArea & operator=( const QgsDistanceArea & origDA );
 
-    //! sets whether coordinates must be projected to ellipsoid before measuring
+    /** Sets whether coordinates must be projected to ellipsoid before measuring
+     * @note for calculations to use the ellipsoid, both the ellipsoid mode must be true
+     * and an ellipse must be set
+     * @see setEllipsoid()
+     * @see willUseEllipsoid()
+     */
     void setEllipsoidalMode( bool flag );
 
-    //! returns projections enabled flag
+    /** Returns whether ellipsoidal calculations are enabled
+     * @see willUseEllipsoid()
+     * @see setEllipsoidalMode()
+     */
     bool ellipsoidalEnabled() const { return mEllipsoidalMode; }
+
+    /** Returns whether calculations will use the ellipsoid. Calculations will only use the
+     * ellipsoid if ellipsoidalEnabled() is true and an ellipsoid has been set.
+     * @note added in QGIS 2.14
+     * @see ellipsoidalEnabled()
+     * @see ellipsoid()
+     */
+    bool willUseEllipsoid() const;
 
     //! sets source spatial reference system (by QGIS CRS)
     void setSourceCrs( long srsid );
@@ -62,22 +80,39 @@ class CORE_EXPORT QgsDistanceArea
     void setSourceCrs( const QgsCoordinateReferenceSystem& srcCRS );
 
     //! sets source spatial reference system by authid
-    void setSourceAuthId( QString authid );
+    void setSourceAuthId( const QString& authid );
 
     //! returns source spatial reference system
     long sourceCrs() const { return mCoordTransform->sourceCrs().srsid(); }
     //! What sort of coordinate system is being used?
     bool geographic() const { return mCoordTransform->sourceCrs().geographicFlag(); }
 
-    //! sets ellipsoid by its acronym
+    /** Sets ellipsoid by its acronym. Calculations will only use the ellipsoid if
+     * both the ellipsoid has been set and ellipsoidalEnabled() is true.
+     * @returns true if ellipsoid was successfully set
+     * @see ellipsoid()
+     * @see setEllipsoidalMode()
+     * @see willUseEllipsoid()
+     */
     bool setEllipsoid( const QString& ellipsoid );
 
-    //! Sets ellipsoid by supplied radii
+    /** Sets ellipsoid by supplied radii. Calculations will only use the ellipsoid if
+     * both the ellipsoid has been set and ellipsoidalEnabled() is true.
+     * @returns true if ellipsoid was successfully set
+     * @see ellipsoid()
+     * @see setEllipsoidalMode()
+     * @see willUseEllipsoid()
+     */
     // Inverse flattening is calculated with invf = a/(a-b)
     bool setEllipsoid( double semiMajor, double semiMinor );
 
-    //! returns ellipsoid's acronym
-    const QString& ellipsoid() const { return mEllipsoid; }
+    /** Returns ellipsoid's acronym. Calculations will only use the
+     * ellipsoid if ellipsoidalEnabled() is true and an ellipsoid has been set.
+     * @see setEllipsoid()
+     * @see ellipsoidalEnabled()
+     * @see willUseEllipsoid()
+     */
+    QString ellipsoid() const { return mEllipsoid; }
 
     //! returns ellipsoid's semi major axis
     double ellipsoidSemiMajor() const { return mSemiMajor; }
@@ -86,36 +121,67 @@ class CORE_EXPORT QgsDistanceArea
     //! returns ellipsoid's inverse flattening
     double ellipsoidInverseFlattening() const { return mInvFlattening; }
 
-    //! general measurement (line distance or polygon area)
-    double measure( QgsGeometry* geometry );
+    /** General measurement (line distance or polygon area)
+     * @deprecated use measureArea() or measureLength() methods instead, as this method
+     * is unpredictable for geometry collections
+     */
+    Q_DECL_DEPRECATED double measure( const QgsGeometry* geometry ) const;
+
+    /** Measures the area of a geometry.
+     * @param geometry geometry to measure
+     * @returns area of geometry. For geometry collections, non surface geometries will be ignored
+     * @note added in QGIS 2.12
+     * @see measureLength()
+     * @see measurePerimeter()
+     */
+    double measureArea( const QgsGeometry* geometry ) const;
+
+    /** Measures the length of a geometry.
+     * @param geometry geometry to measure
+     * @returns length of geometry. For geometry collections, non curve geometries will be ignored
+     * @note added in QGIS 2.12
+     * @see measureArea()
+     * @see measurePerimeter()
+     */
+    double measureLength( const QgsGeometry* geometry ) const;
 
     //! measures perimeter of polygon
-    double measurePerimeter( QgsGeometry* geometry );
+    double measurePerimeter( const QgsGeometry *geometry ) const;
 
     //! measures line
-    double measureLine( const QList<QgsPoint>& points );
+    double measureLine( const QList<QgsPoint>& points ) const;
 
-    //! measures line with one segment
-    double measureLine( const QgsPoint& p1, const QgsPoint& p2 );
+    /** Measures length of line with one segment
+     * @param p1 start of line
+     * @param p2 end of line
+     * @returns distance in meters, or map units if cartesian calculation was performed
+     */
+    double measureLine( const QgsPoint& p1, const QgsPoint& p2 ) const;
+
+    /** Measures length of line with one segment and returns units of distance.
+     * @param p1 start of line
+     * @param p2 end of line
+     * @param units will be set to units of measure
+     * @returns calculated distance between points. Distance units are stored in units parameter.
+     * @note added in QGIS 2.12
+     */
+    double measureLine( const QgsPoint& p1, const QgsPoint& p2, QGis::UnitType& units ) const;
 
     //! measures polygon area
-    double measurePolygon( const QList<QgsPoint>& points );
+    double measurePolygon( const QList<QgsPoint>& points ) const;
 
     //! compute bearing - in radians
-    double bearing( const QgsPoint& p1, const QgsPoint& p2 );
+    double bearing( const QgsPoint& p1, const QgsPoint& p2 ) const;
 
     static QString textUnit( double value, int decimals, QGis::UnitType u, bool isArea, bool keepBaseUnit = false );
 
     //! Helper for conversion between physical units
-    void convertMeasurement( double &measure, QGis::UnitType &measureUnits, QGis::UnitType displayUnits, bool isArea );
+    void convertMeasurement( double &measure, QGis::UnitType &measureUnits, QGis::UnitType displayUnits, bool isArea ) const;
 
   protected:
-    //! measures line distance, line points are extracted from WKB
-    // @note available in python bindings
-    const unsigned char* measureLine( const unsigned char* feature, double* area, bool hasZptr = false );
     //! measures polygon area and perimeter, vertices are extracted from WKB
     // @note available in python bindings
-    const unsigned char* measurePolygon( const unsigned char* feature, double* area, double* perimeter, bool hasZptr = false );
+    const unsigned char* measurePolygon( const unsigned char* feature, double* area, double* perimeter, bool hasZptr = false ) const;
 
     /**
       calculates distance from two points on ellipsoid
@@ -128,22 +194,22 @@ class CORE_EXPORT QgsDistanceArea
       @return distance in meters
      */
     double computeDistanceBearing( const QgsPoint& p1, const QgsPoint& p2,
-                                   double* course1 = NULL, double* course2 = NULL );
+                                   double* course1 = nullptr, double* course2 = nullptr ) const;
 
     //! uses flat / planimetric / Euclidean distance
-    double computeDistanceFlat( const QgsPoint& p1, const QgsPoint& p2 );
+    double computeDistanceFlat( const QgsPoint& p1, const QgsPoint& p2 ) const;
 
     //! calculate distance with given coordinates (does not do a transform anymore)
-    double computeDistance( const QList<QgsPoint>& points );
+    double computeDistance( const QList<QgsPoint>& points ) const;
 
     /**
      calculates area of polygon on ellipsoid
      algorithm has been taken from GRASS: gis/area_poly1.c
 
     */
-    double computePolygonArea( const QList<QgsPoint>& points );
+    double computePolygonArea( const QList<QgsPoint>& points ) const;
 
-    double computePolygonFlatArea( const QList<QgsPoint>& points );
+    double computePolygonFlatArea( const QList<QgsPoint>& points ) const;
 
     /**
       precalculates some values
@@ -152,6 +218,14 @@ class CORE_EXPORT QgsDistanceArea
     void computeAreaInit();
 
   private:
+
+    enum MeasureType
+    {
+      Default,
+      Area,
+      Length
+    };
+
     //! Copy helper
     void _copy( const QgsDistanceArea & origDA );
 
@@ -169,8 +243,12 @@ class CORE_EXPORT QgsDistanceArea
 
     // utility functions for polygon area measurement
 
-    double getQ( double x );
-    double getQbar( double x );
+    double getQ( double x ) const;
+    double getQbar( double x ) const;
+
+    double measure( const QgsAbstractGeometryV2* geomV2, MeasureType type = Default ) const;
+    double measureLine( const QgsCurveV2* curve ) const;
+    double measurePolygon( const QgsCurveV2* curve ) const;
 
     // temporary area measurement stuff
 

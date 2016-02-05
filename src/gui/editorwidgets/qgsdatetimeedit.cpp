@@ -27,6 +27,7 @@
 QgsDateTimeEdit::QgsDateTimeEdit( QWidget *parent )
     : QDateTimeEdit( parent )
     , mAllowNull( true )
+    , mIsNull( true )
 {
   mClearButton = new QToolButton( this );
   mClearButton->setIcon( QgsApplication::getThemeIcon( "/mIconClear.svg" ) );
@@ -105,6 +106,7 @@ void QgsDateTimeEdit::setDateTime( const QDateTime& dateTime )
   else
   {
     QDateTimeEdit::setDateTime( dateTime );
+    mIsNull = false;
   }
 }
 
@@ -127,14 +129,10 @@ void QgsDateTimeEdit::resizeEvent( QResizeEvent * event )
   QSize sz = mClearButton->sizeHint();
 
 
-  mClearButton->move( rect().right() - frameWidth() - spinButtonWidth() - sz.width() ,
+  mClearButton->move( rect().right() - frameWidth() - spinButtonWidth() - sz.width(),
                       ( rect().bottom() + 1 - sz.height() ) / 2 );
 
   mNullLabel->move( 0, 0 );
   mNullLabel->setMinimumSize( rect().adjusted( 0, 0, -spinButtonWidth(), 0 ).size() );
   mNullLabel->setMaximumSize( rect().adjusted( 0, 0, -spinButtonWidth(), 0 ).size() );
 }
-
-
-
-

@@ -38,11 +38,11 @@ class GUI_EXPORT QgsMapLayerModel : public QAbstractItemModel
     /**
      * @brief QgsMapLayerModel creates a model to display layers in widgets.
      */
-    explicit QgsMapLayerModel( QObject *parent = 0 );
+    explicit QgsMapLayerModel( QObject *parent = nullptr );
     /**
      * @brief QgsMapLayerModel creates a model to display a specific list of layers in a widget.
      */
-    explicit QgsMapLayerModel( QList<QgsMapLayer*> layers, QObject *parent = 0 );
+    explicit QgsMapLayerModel( const QList<QgsMapLayer*>& layers, QObject *parent = nullptr );
 
     /**
      * @brief setItemsCheckable defines if layers should be selectable in the widget
@@ -66,8 +66,8 @@ class GUI_EXPORT QgsMapLayerModel : public QAbstractItemModel
 
 
   protected slots:
-    void removeLayers( const QStringList layerIds );
-    void addLayers( QList<QgsMapLayer*> layers );
+    void removeLayers( const QStringList& layerIds );
+    void addLayers( const QList<QgsMapLayer*>& layers );
 
   protected:
     QList<QgsMapLayer*> mLayers;
@@ -76,13 +76,13 @@ class GUI_EXPORT QgsMapLayerModel : public QAbstractItemModel
 
     // QAbstractItemModel interface
   public:
-    QModelIndex index( int row, int column, const QModelIndex &parent = QModelIndex() ) const;
-    QModelIndex parent( const QModelIndex &child ) const;
-    int rowCount( const QModelIndex &parent ) const;
-    int columnCount( const QModelIndex &parent ) const;
-    QVariant data( const QModelIndex &index, int role ) const;
-    bool setData( const QModelIndex &index, const QVariant &value, int role );
-    Qt::ItemFlags flags( const QModelIndex &index ) const;
+    QModelIndex index( int row, int column, const QModelIndex &parent = QModelIndex() ) const override;
+    QModelIndex parent( const QModelIndex &child ) const override;
+    int rowCount( const QModelIndex &parent ) const override;
+    int columnCount( const QModelIndex &parent ) const override;
+    QVariant data( const QModelIndex &index, int role ) const override;
+    bool setData( const QModelIndex &index, const QVariant &value, int role ) override;
+    Qt::ItemFlags flags( const QModelIndex &index ) const override;
 };
 
 #endif // QGSMAPLAYERMODEL_H

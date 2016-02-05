@@ -114,6 +114,12 @@ void CharacterWidget::updateColumns( int cols )
   update();
 }
 
+void CharacterWidget::setCharacter( QChar character )
+{
+  lastKey = character.unicode();
+  update();
+}
+
 //! [3]
 QSize CharacterWidget::sizeHint() const
 {
@@ -141,7 +147,7 @@ void CharacterWidget::mousePressEvent( QMouseEvent *event )
   if ( event->button() == Qt::LeftButton )
   {
     lastKey = ( event->y() / squareSize ) * columns + event->x() / squareSize;
-    if ( QChar( lastKey ).category() != QChar::NoCategory )
+    if ( QChar( lastKey ).category() != QChar::Other_NotAssigned )
       emit characterSelected( QChar( lastKey ) );
     update();
   }

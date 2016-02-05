@@ -20,6 +20,7 @@
 #include "qgsmaptopixel.h"
 #include "qgsrubberband.h"
 #include "qgsvectorlayer.h"
+#include "qgssnappingutils.h"
 #include "qgstolerance.h"
 
 #include "qgsmeasuredialog.h"
@@ -32,6 +33,7 @@
 
 QgsMeasureTool::QgsMeasureTool( QgsMapCanvas* canvas, bool measureArea )
     : QgsMapTool( canvas )
+    , mWrongProjectProjection( false )
 {
   mMeasureArea = measureArea;
 
@@ -47,7 +49,6 @@ QgsMeasureTool::QgsMeasureTool( QgsMapCanvas* canvas, bool measureArea )
 
   mDialog = new QgsMeasureDialog( this, Qt::WindowStaysOnTopHint );
   mDialog->restorePosition();
-  mSnapper.setMapCanvas( canvas );
 
   connect( canvas, SIGNAL( destinationCrsChanged() ),
            this, SLOT( updateSettings() ) );
@@ -81,7 +82,7 @@ void QgsMeasureTool::activate()
        ( mCanvas->extent().height() > 360 ||
          mCanvas->extent().width() > 720 ) )
   {
-    QMessageBox::warning( NULL, tr( "Incorrect measure results" ),
+    QMessageBox::warning( nullptr, tr( "Incorrect measure results" ),
                           tr( "<p>This map is defined with a geographic coordinate system "
                               "(latitude/longitude) "
                               "but the map extents suggests that it is actually a projected "
@@ -132,12 +133,12 @@ void QgsMeasureTool::updateSettings()
 
 //////////////////////////
 
-void QgsMeasureTool::canvasPressEvent( QMouseEvent * e )
+void QgsMeasureTool::canvasPressEvent( QgsMapMouseEvent* e )
 {
   Q_UNUSED( e );
 }
 
-void QgsMeasureTool::canvasMoveEvent( QMouseEvent * e )
+void QgsMeasureTool::canvasMoveEvent( QgsMapMouseEvent* e )
 {
   if ( ! mDone )
   {
@@ -149,7 +150,7 @@ void QgsMeasureTool::canvasMoveEvent( QMouseEvent * e )
 }
 
 
-void QgsMeasureTool::canvasReleaseEvent( QMouseEvent * e )
+void QgsMeasureTool::canvasReleaseEvent( QgsMapMouseEvent* e )
 {
   QgsPoint point = snapPoint( e->pos() );
 
@@ -238,15 +239,9 @@ void QgsMeasureTool::addPoint( QgsPoint &point )
   }
 }
 
+
 QgsPoint QgsMeasureTool::snapPoint( const QPoint& p )
 {
-  QList<QgsSnappingResult> snappingResults;
-  if ( mSnapper.snapToBackgroundLayers( p, snappingResults ) != 0 || snappingResults.size() < 1 )
-  {
-    return mCanvas->getCoordinateTransform()->toMapCoordinates( p );
-  }
-  else
-  {
-    return snappingResults.constBegin()->snappedVertex;
-  }
+  QgsPointLocator::Match m = mCanvas->snappingUtils()->snapToMap( p );
+  return m.isValid() ? m.point() : mCanvas->getCoordinateTransform()->toMapCoordinates( p );
 }

@@ -30,6 +30,7 @@ from LAStoolsAlgorithm import LAStoolsAlgorithm
 from processing.core.parameters import ParameterNumber
 from processing.core.parameters import ParameterSelection
 
+
 class lassplit(LAStoolsAlgorithm):
 
     DIGITS = "DIGITS"
@@ -38,23 +39,27 @@ class lassplit(LAStoolsAlgorithm):
     INTERVAL = "INTERVAL"
 
     def defineCharacteristics(self):
-        self.name = "lassplit"
-        self.group = "LAStools"
+        self.name, self.i18n_name = self.trAlgorithm('lassplit')
+        self.group, self.i18n_group = self.trAlgorithm('LAStools')
         self.addParametersVerboseGUI()
         self.addParametersPointInputGUI()
-        self.addParameter(ParameterNumber(lassplit.DIGITS, "number of digits for file names", 0, None, 5))
-        self.addParameter(ParameterSelection(lassplit.OPERATION, "how to split", lassplit.OPERATIONS, 0))
-        self.addParameter(ParameterNumber(lassplit.INTERVAL, "interval or number", 0, None, 5))
+        self.addParameter(ParameterNumber(lassplit.DIGITS,
+                                          self.tr("number of digits for file names"), 0, None, 5))
+        self.addParameter(ParameterSelection(lassplit.OPERATION,
+                                             self.tr("how to split"), lassplit.OPERATIONS, 0))
+        self.addParameter(ParameterNumber(lassplit.INTERVAL,
+                                          self.tr("interval or number"), 0, None, 5))
         self.addParametersPointOutputGUI()
+        self.addParametersAdditionalGUI()
 
     def processAlgorithm(self, progress):
-        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lassplit.exe")]
+        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lassplit")]
         self.addParametersVerboseCommands(commands)
         self.addParametersPointInputCommands(commands)
         digits = self.getParameterValue(lassplit.DIGITS)
         if digits != 5:
             commands.append("-digits")
-            commands.append(str(digits))
+            commands.append(unicode(digits))
         operation = self.getParameterValue(lassplit.OPERATION)
         if operation != 0:
             if operation == 9:
@@ -63,7 +68,8 @@ class lassplit(LAStoolsAlgorithm):
                 commands.append("-" + lassplit.OPERATIONS[operation])
         if operation > 1 and operation < 10:
             interval = self.getParameterValue(lassplit.INTERVAL)
-            commands.append(str(interval))
+            commands.append(unicode(interval))
         self.addParametersPointOutputCommands(commands)
+        self.addParametersAdditionalCommands(commands)
 
         LAStoolsUtils.runLAStools(commands, progress)

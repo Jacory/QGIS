@@ -26,6 +26,7 @@ __copyright__ = '(C) 2012, Victor Olaya'
 
 __revision__ = '$Format:%H$'
 
+from PyQt4.QtCore import QCoreApplication
 import os
 import re
 import json
@@ -39,7 +40,7 @@ exps = [(r"\*(.*?)\*", r"<i>\1</i>"),
         ("``(.*?)``", r'<FONT FACE="courier">\1</FONT>'),
         ("(.*?)\n==+\n+?", r'<h2>\1</h2>'),
         ("(.*?)\n--+\n+?", r'<h3>\1</h3>'),
-        (r"::(\s*\n(\s*\n)*((\s+).*?\n)(((\4).*?\n)|(\s*\n))*)",r"<pre>\1</pre>"),
+        (r"::(\s*\n(\s*\n)*((\s+).*?\n)(((\4).*?\n)|(\s*\n))*)", r"<pre>\1</pre>"),
         ("\n+", "</p><p>")]
 
 
@@ -54,38 +55,43 @@ def getHtmlFromRstFile(rst):
         s = p.sub(replace, s)
     return s
 
+
 def getHtmlFromHelpFile(alg, helpFile):
     if not os.path.exists(helpFile):
         return None
     try:
         with open(helpFile) as f:
             descriptions = json.load(f)
-            return getHtmlFromDescriptionsDict(descriptions)
+            return getHtmlFromDescriptionsDict(alg, descriptions)
     except:
         return None
 
-def getHtmlFromDescriptionsDict(alg, descriptions):
 
-    s = '<html><body><h2>Algorithm description</h2>\n'
+def getHtmlFromDescriptionsDict(alg, descriptions):
+    s = tr('<html><body><h2>Algorithm description</h2>\n')
     s += '<p>' + getDescription(ALG_DESC, descriptions) + '</p>\n'
-    s += '<h2>Input parameters</h2>\n'
+    s += tr('<h2>Input parameters</h2>\n')
     for param in alg.parameters:
         s += '<h3>' + param.description + '</h3>\n'
         s += '<p>' + getDescription(param.name, descriptions) + '</p>\n'
-    s += '<h2>Outputs</h2>\n'
+    s += tr('<h2>Outputs</h2>\n')
     for out in alg.outputs:
         s += '<h3>' + out.description + '</h3>\n'
         s += '<p>' + getDescription(out.name, descriptions) + '</p>\n'
     s += '<br>'
-    s += '<p align="right">Algorithm author: ' + getDescription(ALG_CREATOR, descriptions) + '</p>'
-    s += '<p align="right">Help author: ' + getDescription(ALG_HELP_CREATOR, descriptions) + '</p>'
-    s += '<p align="right">Algorithm version: ' + getDescription(ALG_VERSION, descriptions) + '</p>'
+    s += tr('<p align="right">Algorithm author: %s</p>') % getDescription(ALG_CREATOR, descriptions)
+    s += tr('<p align="right">Help author: %s</p>') % getDescription(ALG_HELP_CREATOR, descriptions)
+    s += tr('<p align="right">Algorithm version: %s</p>') % getDescription(ALG_VERSION, descriptions)
     s += '</body></html>'
     return s
 
+
 def getDescription(name, descriptions):
     if name in descriptions:
-        return descriptions[name].replace("\n", "<br>")
+        return unicode(descriptions[name]).replace("\n", "<br>")
     else:
         return ''
 
+
+def tr(string):
+    return QCoreApplication.translate('Help2Html', string)

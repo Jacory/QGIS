@@ -46,7 +46,7 @@ class GUI_EXPORT QgsLayerTreeMapCanvasBridge : public QObject
     Q_OBJECT
   public:
     //! Constructor: does not take ownership of the layer tree nor canvas
-    QgsLayerTreeMapCanvasBridge( QgsLayerTreeGroup* root, QgsMapCanvas* canvas, QObject* parent = 0 );
+    QgsLayerTreeMapCanvasBridge( QgsLayerTreeGroup* root, QgsMapCanvas* canvas, QObject* parent = nullptr );
 
     void clear();
 
@@ -69,7 +69,7 @@ class GUI_EXPORT QgsLayerTreeMapCanvasBridge : public QObject
     bool autoEnableCrsTransform() const { return mAutoEnableCrsTransform; }
 
   public slots:
-    void setHasCustomLayerOrder( bool override );
+    void setHasCustomLayerOrder( bool state );
     void setCustomLayerOrder( const QStringList& order );
 
     //! force update of canvas layers from the layer tree. Normally this should not be needed to be called.
@@ -94,7 +94,7 @@ class GUI_EXPORT QgsLayerTreeMapCanvasBridge : public QObject
     void nodeAddedChildren( QgsLayerTreeNode* node, int indexFrom, int indexTo );
     void nodeRemovedChildren();
     void nodeVisibilityChanged();
-    void nodeCustomPropertyChanged( QgsLayerTreeNode* node, QString key );
+    void nodeCustomPropertyChanged( QgsLayerTreeNode* node, const QString& key );
 
   protected:
     QgsLayerTreeGroup* mRoot;

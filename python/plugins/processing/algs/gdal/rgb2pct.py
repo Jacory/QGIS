@@ -30,7 +30,7 @@ from processing.algs.gdal.GdalAlgorithm import GdalAlgorithm
 from processing.core.parameters import ParameterRaster
 from processing.core.parameters import ParameterNumber
 from processing.core.outputs import OutputRaster
-from processing.tools.system import *
+from processing.tools.system import isWindows
 from processing.algs.gdal.GdalUtils import GdalUtils
 
 
@@ -40,19 +40,19 @@ class rgb2pct(GdalAlgorithm):
     OUTPUT = 'OUTPUT'
     NCOLORS = 'NCOLORS'
 
-
     def defineCharacteristics(self):
-        self.name = 'RGB to PCT'
-        self.group = '[GDAL] Conversion'
-        self.addParameter(ParameterRaster(rgb2pct.INPUT, 'Input layer', False))
-        self.addParameter(ParameterNumber(rgb2pct.NCOLORS, 'Number of colors',
-                          1, None, 2))
-        self.addOutput(OutputRaster(rgb2pct.OUTPUT, 'Output layer'))
+        self.name, self.i18n_name = self.trAlgorithm('RGB to PCT')
+        self.group, self.i18n_group = self.trAlgorithm('[GDAL] Conversion')
+        self.addParameter(ParameterRaster(rgb2pct.INPUT,
+                                          self.tr('Input layer'), False))
+        self.addParameter(ParameterNumber(rgb2pct.NCOLORS,
+                                          self.tr('Number of colors'), 1, None, 2))
+        self.addOutput(OutputRaster(rgb2pct.OUTPUT, self.tr('RGB to PCT')))
 
-    def processAlgorithm(self, progress):
+    def getConsoleCommands(self):
         arguments = []
         arguments.append('-n')
-        arguments.append(str(self.getParameterValue(rgb2pct.NCOLORS)))
+        arguments.append(unicode(self.getParameterValue(rgb2pct.NCOLORS)))
         arguments.append('-of')
         out = self.getOutputValue(rgb2pct.OUTPUT)
         arguments.append(GdalUtils.getFormatShortNameFromFilename(out))
@@ -65,4 +65,4 @@ class rgb2pct(GdalAlgorithm):
         else:
             commands = ['rgb2pct.py', GdalUtils.escapeAndJoin(arguments)]
 
-        GdalUtils.runGdal(commands, progress)
+        return commands

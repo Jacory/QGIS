@@ -31,6 +31,7 @@ QgsCodeEditorSQL::QgsCodeEditorSQL( QWidget *parent )
   }
   setMarginVisible( false );
   setFoldingVisible( true );
+  setAutoCompletionCaseSensitivity( false );
   setSciLexerSQL();
 }
 
@@ -40,7 +41,7 @@ QgsCodeEditorSQL::~QgsCodeEditorSQL()
 
 void QgsCodeEditorSQL::setSciLexerSQL()
 {
-  QsciLexerSQL* sqlLexer = new QsciLexerSQL();
+  QsciLexerSQL* sqlLexer = new QsciLexerSQL( this );
   sqlLexer->setDefaultFont( QFont( "Sans", 10 ) );
 
   setLexer( sqlLexer );

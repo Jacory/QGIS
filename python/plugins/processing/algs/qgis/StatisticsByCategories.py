@@ -25,9 +25,7 @@ __copyright__ = '(C) 2012, Victor Olaya'
 
 __revision__ = '$Format:%H$'
 
-import math
-from PyQt4.QtCore import *
-from qgis.core import *
+from qgis.core import QgsStatisticalSummary
 from processing.core.outputs import OutputTable
 from processing.core.GeoAlgorithm import GeoAlgorithm
 from processing.tools import dataobjects, vector
@@ -43,28 +41,24 @@ class StatisticsByCategories(GeoAlgorithm):
     OUTPUT = 'OUTPUT'
 
     def defineCharacteristics(self):
-        self.name = 'Statistics by categories'
-        self.group = 'Vector table tools'
+        self.name, self.i18n_name = self.trAlgorithm('Statistics by categories')
+        self.group, self.i18n_group = self.trAlgorithm('Vector table tools')
 
         self.addParameter(ParameterVector(self.INPUT_LAYER,
-                          'Input vector layer',
-                          [ParameterVector.VECTOR_TYPE_ANY], False))
+                                          self.tr('Input vector layer'), [ParameterVector.VECTOR_TYPE_ANY], False))
         self.addParameter(ParameterTableField(self.VALUES_FIELD_NAME,
-                          'Field to calculate statistics on',
-                          self.INPUT_LAYER,
-                          ParameterTableField.DATA_TYPE_NUMBER))
+                                              self.tr('Field to calculate statistics on'),
+                                              self.INPUT_LAYER, ParameterTableField.DATA_TYPE_NUMBER))
         self.addParameter(ParameterTableField(self.CATEGORIES_FIELD_NAME,
-                          'Field with categories', self.INPUT_LAYER,
-                          ParameterTableField.DATA_TYPE_ANY))
+                                              self.tr('Field with categories'),
+                                              self.INPUT_LAYER, ParameterTableField.DATA_TYPE_ANY))
 
-        self.addOutput(OutputTable(self.OUTPUT, 'Statistics'))
+        self.addOutput(OutputTable(self.OUTPUT, self.tr('Statistics by category')))
 
     def processAlgorithm(self, progress):
-        layer = dataobjects.getObjectFromUri(
-                self.getParameterValue(self.INPUT_LAYER))
+        layer = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER))
         valuesFieldName = self.getParameterValue(self.VALUES_FIELD_NAME)
-        categoriesFieldName = self.getParameterValue(
-                self.CATEGORIES_FIELD_NAME)
+        categoriesFieldName = self.getParameterValue(self.CATEGORIES_FIELD_NAME)
 
         output = self.getOutputFromName(self.OUTPUT)
         valuesField = layer.fieldNameIndex(valuesFieldName)
@@ -87,38 +81,13 @@ class StatisticsByCategories(GeoAlgorithm):
             except:
                 pass
 
-        fields = ['category', 'min', 'max', 'mean', 'stddev', 'count']
+        fields = ['category', 'min', 'max', 'mean', 'stddev', 'sum', 'count']
         writer = output.getTableWriter(fields)
+        stat = QgsStatisticalSummary(QgsStatisticalSummary.Min | QgsStatisticalSummary.Max |
+                                     QgsStatisticalSummary.Mean | QgsStatisticalSummary.StDevSample |
+                                     QgsStatisticalSummary.Sum | QgsStatisticalSummary.Count)
+
         for (cat, v) in values.items():
-            (min, max, mean, stddev) = calculateStats(v)
-            record = [cat, min, max, mean, stddev, len(v)]
+            stat.calculate(v)
+            record = [cat, stat.min(), stat.max(), stat.mean(), stat.sampleStDev(), stat.sum(), stat.count()]
             writer.addRecord(record)
-
-
-def calculateStats(values):
-    n = 0
-    sum = 0
-    mean = 0
-    M2 = 0
-    minvalue = None
-    maxvalue = None
-
-    for v in values:
-        sum += v
-        n = n + 1
-        delta = v - mean
-        mean = mean + delta / n
-        M2 = M2 + delta * (v - mean)
-        if minvalue is None:
-            minvalue = v
-            maxvalue = v
-        else:
-            minvalue = min(v, minvalue)
-            maxvalue = max(v, maxvalue)
-
-    if n > 1:
-        variance = M2 / (n - 1)
-    else:
-        variance = 0
-    stddev = math.sqrt(variance)
-    return (minvalue, maxvalue, mean, stddev)

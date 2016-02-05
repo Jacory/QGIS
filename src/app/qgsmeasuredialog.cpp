@@ -14,6 +14,7 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "qgisapp.h"
 #include "qgsmeasuredialog.h"
 #include "qgsmeasuretool.h"
 
@@ -24,6 +25,7 @@
 #include "qgsmaprenderer.h"
 #include "qgsproject.h"
 #include "qgscoordinatereferencesystem.h"
+#include "qgsunittypes.h"
 
 #include <QCloseEvent>
 #include <QLocale>
@@ -40,10 +42,34 @@ QgsMeasureDialog::QgsMeasureDialog( QgsMeasureTool* tool, Qt::WindowFlags f )
   buttonBox->addButton( nb, QDialogButtonBox::ActionRole );
   connect( nb, SIGNAL( clicked() ), this, SLOT( restart() ) );
 
+  // Add a configuration button
+  QPushButton* cb = new QPushButton( tr( "&Configuration" ) );
+  buttonBox->addButton( cb, QDialogButtonBox::ActionRole );
+  connect( cb, SIGNAL( clicked() ), this, SLOT( openConfigTab() ) );
+
   mMeasureArea = tool->measureArea();
   mTotal = 0.;
 
+  mUnitsCombo->addItem( QgsUnitTypes::toString( QGis::Meters ) );
+  mUnitsCombo->addItem( QgsUnitTypes::toString( QGis::Feet ) );
+  mUnitsCombo->addItem( QgsUnitTypes::toString( QGis::Degrees ) );
+  mUnitsCombo->addItem( QgsUnitTypes::toString( QGis::NauticalMiles ) );
+
+  QSettings settings;
+  QString units = settings.value( "/qgis/measure/displayunits", QgsUnitTypes::encodeUnit( QGis::Meters ) ).toString();
+  mUnitsCombo->setCurrentIndex( mUnitsCombo->findText( QgsUnitTypes::toString( QgsUnitTypes::decodeDistanceUnit( units ) ), Qt::MatchFixedString ) );
+
   updateSettings();
+
+  connect( mUnitsCombo, SIGNAL( currentIndexChanged( const QString & ) ), this, SLOT( unitsChanged( const QString & ) ) );
+  connect( buttonBox, SIGNAL( rejected() ), this, SLOT( reject() ) );
+
+  groupBox->setCollapsed( true );
+}
+
+void QgsMeasureDialog::openConfigTab()
+{
+  QgisApp::instance()->showOptionsDialog( this, "mOptionsPageMapTools" );
 }
 
 void QgsMeasureDialog::updateSettings()
@@ -52,8 +78,8 @@ void QgsMeasureDialog::updateSettings()
 
   mDecimalPlaces = settings.value( "/qgis/measure/decimalplaces", "3" ).toInt();
   mCanvasUnits = mTool->canvas()->mapUnits();
-  mDisplayUnits = QGis::fromLiteral( settings.value( "/qgis/measure/displayunits", QGis::toLiteral( QGis::Meters ) ).toString() );
   // Configure QgsDistanceArea
+  mDisplayUnits = QgsUnitTypes::stringToDistanceUnit( mUnitsCombo->currentText() );
   mDa.setSourceCrs( mTool->canvas()->mapSettings().destinationCrs().srsid() );
   mDa.setEllipsoid( QgsProject::instance()->readEntry( "Measure", "/Ellipsoid", GEO_NONE ) );
   // Only use ellipsoidal calculation when project wide transformation is enabled.
@@ -70,10 +96,18 @@ void QgsMeasureDialog::updateSettings()
   QgsDebugMsg( QString( "Ellipsoid ID : %1" ).arg( mDa.ellipsoid() ) );
   QgsDebugMsg( QString( "Ellipsoidal  : %1" ).arg( mDa.ellipsoidalEnabled() ? "true" : "false" ) );
   QgsDebugMsg( QString( "Decimalplaces: %1" ).arg( mDecimalPlaces ) );
-  QgsDebugMsg( QString( "Display units: %1" ).arg( QGis::toLiteral( mDisplayUnits ) ) );
-  QgsDebugMsg( QString( "Canvas units : %1" ).arg( QGis::toLiteral( mCanvasUnits ) ) );
+  QgsDebugMsg( QString( "Display units: %1" ).arg( QgsUnitTypes::encodeUnit( mDisplayUnits ) ) );
+  QgsDebugMsg( QString( "Canvas units : %1" ).arg( QgsUnitTypes::encodeUnit( mCanvasUnits ) ) );
 
   mTotal = 0;
+  updateUi();
+}
+
+void QgsMeasureDialog::unitsChanged( const QString &units )
+{
+  mDisplayUnits = QgsUnitTypes::stringToDistanceUnit( units );
+  mTable->clear();
+  mTotal = 0.;
   updateUi();
 }
 
@@ -113,8 +147,11 @@ void QgsMeasureDialog::mouseMove( QgsPoint &point )
 
     // Set moving
     QTreeWidgetItem *item = mTable->topLevelItem( mTable->topLevelItemCount() - 1 );
-    item->setText( 0, QLocale::system().toString( d, 'f', mDecimalPlaces ) );
-    QgsDebugMsg( QString( "Final result is %1" ).arg( item->text( 0 ) ) );
+    if ( item )
+    {
+      item->setText( 0, QLocale::system().toString( d, 'f', mDecimalPlaces ) );
+      QgsDebugMsg( QString( "Final result is %1" ).arg( item->text( 0 ) ) );
+    }
   }
 }
 
@@ -183,15 +220,9 @@ void QgsMeasureDialog::removeLastPoint()
   }
 }
 
-void QgsMeasureDialog::on_buttonBox_rejected( void )
-{
-  restart();
-  QDialog::close();
-}
-
 void QgsMeasureDialog::closeEvent( QCloseEvent *e )
 {
-  saveWindowLocation();
+  reject();
   e->accept();
 }
 
@@ -242,8 +273,8 @@ void QgsMeasureDialog::updateUi()
   QString toolTip = tr( "The calculations are based on:" );
   if ( ! mTool->canvas()->hasCrsTransformEnabled() )
   {
-    toolTip += "<br> * " + tr( "Project CRS transformation is turned off." ) + " ";
-    toolTip += tr( "Canvas units setting is taken from project properties setting (%1)." ).arg( QGis::tr( mCanvasUnits ) );
+    toolTip += "<br> * " + tr( "Project CRS transformation is turned off." ) + ' ';
+    toolTip += tr( "Canvas units setting is taken from project properties setting (%1)." ).arg( QgsUnitTypes::toString( mCanvasUnits ) );
     toolTip += "<br> * " + tr( "Ellipsoidal calculation is not possible, as project CRS is undefined." );
     setWindowTitle( tr( "Measure (OTF off)" ) );
   }
@@ -251,29 +282,30 @@ void QgsMeasureDialog::updateUi()
   {
     if ( mDa.ellipsoidalEnabled() )
     {
-      toolTip += "<br> * " + tr( "Project CRS transformation is turned on and ellipsoidal calculation is selected." ) + " ";
+      toolTip += "<br> * " + tr( "Project CRS transformation is turned on and ellipsoidal calculation is selected." ) + ' ';
       toolTip += "<br> * " + tr( "The coordinates are transformed to the chosen ellipsoid (%1), and the result is in meters" ).arg( mDa.ellipsoid() );
     }
     else
     {
       toolTip += "<br> * " + tr( "Project CRS transformation is turned on but ellipsoidal calculation is not selected." );
-      toolTip += "<br> * " + tr( "The canvas units setting is taken from the project CRS (%1)." ).arg( QGis::tr( mCanvasUnits ) );
+      toolTip += "<br> * " + tr( "The canvas units setting is taken from the project CRS (%1)." ).arg( QgsUnitTypes::toString( mCanvasUnits ) );
     }
     setWindowTitle( tr( "Measure (OTF on)" ) );
   }
 
   if (( mCanvasUnits == QGis::Meters && mDisplayUnits == QGis::Feet ) || ( mCanvasUnits == QGis::Feet && mDisplayUnits == QGis::Meters ) )
   {
-    toolTip += "<br> * " + tr( "Finally, the value is converted from %1 to %2." ).arg( QGis::tr( mCanvasUnits ) ).arg( QGis::tr( mDisplayUnits ) );
+    toolTip += "<br> * " + tr( "Finally, the value is converted from %1 to %2." ).arg( QgsUnitTypes::toString( mCanvasUnits ), QgsUnitTypes::toString( mDisplayUnits ) );
   }
 
   editTotal->setToolTip( toolTip );
   mTable->setToolTip( toolTip );
+  mNotesLabel->setText( toolTip );
 
   QGis::UnitType newDisplayUnits;
   double dummy = 1.0;
   convertMeasurement( dummy, newDisplayUnits, true );
-  mTable->setHeaderLabels( QStringList( tr( "Segments [%1]" ).arg( QGis::tr( newDisplayUnits ) ) ) );
+  mTable->setHeaderLabels( QStringList( tr( "Segments [%1]" ).arg( QgsUnitTypes::toString( newDisplayUnits ) ) ) );
 
   if ( mMeasureArea )
   {
@@ -301,7 +333,7 @@ void QgsMeasureDialog::updateUi()
         QGis::UnitType dummyUnits;
         convertMeasurement( d, dummyUnits, false );
 
-        QTreeWidgetItem *item = new QTreeWidgetItem( QStringList( QLocale::system().toString( d , 'f', mDecimalPlaces ) ) );
+        QTreeWidgetItem *item = new QTreeWidgetItem( QStringList( QLocale::system().toString( d, 'f', mDecimalPlaces ) ) );
         item->setTextAlignment( 0, Qt::AlignRight );
         mTable->addTopLevelItem( item );
         mTable->scrollToItem( item );
@@ -323,9 +355,16 @@ void QgsMeasureDialog::convertMeasurement( double &measure, QGis::UnitType &u, b
   // Get the canvas units
   QGis::UnitType myUnits = mCanvasUnits;
 
-  QgsDebugMsg( QString( "Preferred display units are %1" ).arg( QGis::toLiteral( mDisplayUnits ) ) );
+  QgsDebugMsg( QString( "Preferred display units are %1" ).arg( QgsUnitTypes::encodeUnit( mDisplayUnits ) ) );
 
   mDa.convertMeasurement( measure, myUnits, mDisplayUnits, isArea );
   u = myUnits;
 }
 
+
+void QgsMeasureDialog::reject()
+{
+  saveWindowLocation();
+  restart();
+  QDialog::close();
+}

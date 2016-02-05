@@ -34,22 +34,26 @@ from LAStoolsAlgorithm import LAStoolsAlgorithm
 from processing.core.parameters import ParameterBoolean
 from processing.core.parameters import ParameterSelection
 
+
 class lasgroundPro(LAStoolsAlgorithm):
 
-    AIRBORNE = "AIRBORNE"
+    NO_BULGE = "NO_BULGE"
     TERRAIN = "TERRAIN"
     TERRAINS = ["wilderness", "nature", "town", "city", "metro"]
     GRANULARITY = "GRANULARITY"
     GRANULARITIES = ["coarse", "default", "fine", "extra_fine", "ultra_fine"]
 
     def defineCharacteristics(self):
-        self.name = "lasgroundPro"
-        self.group = "LAStools Production"
+        self.name, self.i18n_name = self.trAlgorithm('lasgroundPro')
+        self.group, self.i18n_group = self.trAlgorithm('LAStools Production')
         self.addParametersPointInputFolderGUI()
         self.addParametersHorizontalAndVerticalFeetGUI()
-        self.addParameter(ParameterBoolean(lasgroundPro.AIRBORNE, "airborne LiDAR", True))
-        self.addParameter(ParameterSelection(lasgroundPro.TERRAIN, "terrain type", lasgroundPro.TERRAINS, 1))
-        self.addParameter(ParameterSelection(lasgroundPro.GRANULARITY, "preprocessing", lasgroundPro.GRANULARITIES, 1))
+        self.addParameter(ParameterBoolean(lasgroundPro.NO_BULGE,
+                                           self.tr("no triangle bulging during TIN refinement"), False))
+        self.addParameter(ParameterSelection(lasgroundPro.TERRAIN,
+                                             self.tr("terrain type"), lasgroundPro.TERRAINS, 1))
+        self.addParameter(ParameterSelection(lasgroundPro.GRANULARITY,
+                                             self.tr("preprocessing"), lasgroundPro.GRANULARITIES, 1))
         self.addParametersOutputDirectoryGUI()
         self.addParametersOutputAppendixGUI()
         self.addParametersPointOutputFormatGUI()
@@ -58,18 +62,17 @@ class lasgroundPro(LAStoolsAlgorithm):
         self.addParametersVerboseGUI()
 
     def processAlgorithm(self, progress):
-        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lasground.exe")]
+        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lasground")]
         self.addParametersVerboseCommands(commands)
         self.addParametersPointInputFolderCommands(commands)
         self.addParametersHorizontalAndVerticalFeetCommands(commands)
-        airborne = self.getParameterValue(lasgroundPro.AIRBORNE)
-        if airborne != True:
-            commands.append("-not_airborne")
+        if (self.getParameterValue(lasgroundPro.NO_BULGE)):
+            commands.append("-no_bulge")
         method = self.getParameterValue(lasgroundPro.TERRAIN)
-        if method != 1:
+        if (method != 1):
             commands.append("-" + lasgroundPro.TERRAINS[method])
         granularity = self.getParameterValue(lasgroundPro.GRANULARITY)
-        if granularity != 1:
+        if (granularity != 1):
             commands.append("-" + lasgroundPro.GRANULARITIES[granularity])
         self.addParametersCoresCommands(commands)
         self.addParametersOutputDirectoryCommands(commands)

@@ -55,15 +55,15 @@ QWidget *QgsOracleSourceSelectDelegate::createEditor( QWidget *parent, const QSt
   if ( index.column() == QgsOracleTableModel::dbtmType && index.data( Qt::UserRole + 1 ).toBool() )
   {
     QComboBox *cb = new QComboBox( parent );
-    foreach ( QGis::WkbType type,
-              QList<QGis::WkbType>()
-              << QGis::WKBPoint
-              << QGis::WKBLineString
-              << QGis::WKBPolygon
-              << QGis::WKBMultiPoint
-              << QGis::WKBMultiLineString
-              << QGis::WKBMultiPolygon
-              << QGis::WKBNoGeometry )
+    Q_FOREACH ( QGis::WkbType type,
+                QList<QGis::WkbType>()
+                << QGis::WKBPoint
+                << QGis::WKBLineString
+                << QGis::WKBPolygon
+                << QGis::WKBMultiPoint
+                << QGis::WKBMultiLineString
+                << QGis::WKBMultiPolygon
+                << QGis::WKBNoGeometry )
     {
       cb->addItem( QgsOracleTableModel::iconForWkbType( type ), QgsOracleConn::displayStringForWkbType( type ), type );
     }
@@ -330,11 +330,9 @@ void QgsOracleSourceSelect::on_cmbConnections_currentIndexChanged( const QString
   cbxAllowGeometrylessTables->blockSignals( false );
 
   // populate the table list
-  QgsDataSourceURI uri = QgsOracleConn::connUri( cmbConnections->currentText() );
-  mConnInfo = uri.connectionInfo();
-  mUseEstimatedMetadata = uri.useEstimatedMetadata();
+  mConnInfo = QgsOracleConn::connUri( cmbConnections->currentText() );
 
-  QgsDebugMsg( "Connection info: " + uri.connectionInfo() );
+  QgsDebugMsg( "Connection info: " + mConnInfo.uri() );
 
   loadTableFromCache();
 }
@@ -441,7 +439,6 @@ QgsOracleSourceSelect::~QgsOracleSourceSelect()
   if ( mColumnTypeThread )
   {
     mColumnTypeThread->stop();
-    mColumnTypeThread->wait();
     finishList();
   }
 
@@ -477,12 +474,12 @@ void QgsOracleSourceSelect::addTables()
 {
   mSelectedTables.clear();
 
-  foreach ( QModelIndex idx, mTablesTreeView->selectionModel()->selection().indexes() )
+  Q_FOREACH ( QModelIndex idx, mTablesTreeView->selectionModel()->selection().indexes() )
   {
     if ( idx.column() != QgsOracleTableModel::dbtmTable )
       continue;
 
-    QString uri = mTableModel.layerURI( mProxyModel.mapToSource( idx ), mConnInfo, mUseEstimatedMetadata );
+    QString uri = mTableModel.layerURI( mProxyModel.mapToSource( idx ), mConnInfo );
     if ( uri.isNull() )
       continue;
 
@@ -524,7 +521,7 @@ void QgsOracleSourceSelect::on_btnConnect_clicked()
   mTablesTreeDelegate->setConnectionInfo( uri.connectionInfo() );
 
   mColumnTypeThread = new QgsOracleColumnTypeThread( cmbConnections->currentText(),
-      mUseEstimatedMetadata,
+      uri.useEstimatedMetadata(),
       cbxAllowGeometrylessTables->isChecked() );
 
   connect( mColumnTypeThread, SIGNAL( setLayerType( QgsOracleLayerProperty ) ),
@@ -593,11 +590,6 @@ QStringList QgsOracleSourceSelect::selectedTables()
   return mSelectedTables;
 }
 
-QString QgsOracleSourceSelect::connectionInfo()
-{
-  return mConnInfo;
-}
-
 void QgsOracleSourceSelect::setSql( const QModelIndex &index )
 {
   if ( !index.parent().isValid() )
@@ -609,7 +601,7 @@ void QgsOracleSourceSelect::setSql( const QModelIndex &index )
   QModelIndex idx = mProxyModel.mapToSource( index );
   QString tableName = mTableModel.itemFromIndex( idx.sibling( idx.row(), QgsOracleTableModel::dbtmTable ) )->text();
 
-  QString uri = mTableModel.layerURI( idx, mConnInfo, mUseEstimatedMetadata );
+  QString uri = mTableModel.layerURI( idx, mConnInfo );
   if ( uri.isNull() )
   {
     QgsDebugMsg( "no uri" );
@@ -670,16 +662,16 @@ void QgsOracleSourceSelect::loadTableFromCache()
   mTableModel.removeRows( 0, mTableModel.rowCount( rootItemIndex ), rootItemIndex );
 
   QString connName = cmbConnections->currentText();
+  QgsDataSourceURI uri = QgsOracleConn::connUri( connName );
   QVector<QgsOracleLayerProperty> layers;
-  if ( !QgsOracleTableCache::loadFromCache( connName, _currentFlags( connName, mUseEstimatedMetadata, cbxAllowGeometrylessTables->isChecked() ), layers ) )
+  if ( !QgsOracleTableCache::loadFromCache( connName, _currentFlags( connName, uri.useEstimatedMetadata(), cbxAllowGeometrylessTables->isChecked() ), layers ) )
     return;
 
-  foreach ( const QgsOracleLayerProperty& layerProperty, layers )
+  Q_FOREACH ( const QgsOracleLayerProperty& layerProperty, layers )
     mTableModel.addTableEntry( layerProperty );
 
   QApplication::setOverrideCursor( Qt::BusyCursor );
 
-  QgsDataSourceURI uri = QgsOracleConn::connUri( connName );
 
   mIsConnected = true;
   mTablesTreeDelegate->setConnectionInfo( uri.connectionInfo() );

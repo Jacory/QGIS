@@ -19,12 +19,23 @@
 #include "qgscomposition.h"
 #include "qgscompositionchecker.h"
 #include "qgsdatadefined.h"
-#include <QObject>
-#include <QtTest>
+#include "qgsexpression.h"
+#include "qgsapplication.h"
 
-class TestQgsComposerObject: public QObject
+#include <QObject>
+#include <QtTest/QtTest>
+
+class TestQgsComposerObject : public QObject
 {
-    Q_OBJECT;
+    Q_OBJECT
+
+  public:
+    TestQgsComposerObject()
+        : mComposition( 0 )
+        , mMapSettings( 0 )
+    {
+    }
+
   private slots:
     void initTestCase();// will be called before the first testfunction is executed.
     void cleanupTestCase();// will be called after the last testfunction was executed.
@@ -36,18 +47,24 @@ class TestQgsComposerObject: public QObject
     void setRetrieveDDProperty(); //test setting and retreiving a data defined property
     void evaluateDDProperty(); //test evaluating data defined properties
     void writeRetrieveDDProperty(); //test writing and retrieving dd properties from xml
+    void customProperties(); //test setting/getting custom properties
+    void writeRetrieveCustomProperties(); //test writing/retreiving custom properties from xml
 
   private:
-    bool renderCheck( QString testName, QImage &image, int mismatchCount = 0 );
-    QgsComposition* mComposition;
-    QgsMapSettings mMapSettings;
+    bool renderCheck( const QString& testName, QImage &image, int mismatchCount = 0 );
+    QgsComposition *mComposition;
+    QgsMapSettings *mMapSettings;
     QString mReport;
 
 };
 
 void TestQgsComposerObject::initTestCase()
 {
-  mComposition = new QgsComposition( mMapSettings );
+  QgsApplication::init();
+  QgsApplication::initQgis();
+
+  mMapSettings = new QgsMapSettings();
+  mComposition = new QgsComposition( *mMapSettings );
   mComposition->setPaperSize( 297, 210 ); //A4 landscape
 
   mReport = "<h1>Composer Object Tests</h1>\n";
@@ -56,8 +73,9 @@ void TestQgsComposerObject::initTestCase()
 void TestQgsComposerObject::cleanupTestCase()
 {
   delete mComposition;
+  delete mMapSettings;
 
-  QString myReportFile = QDir::tempPath() + QDir::separator() + "qgistest.html";
+  QString myReportFile = QDir::tempPath() + "/qgistest.html";
   QFile myFile( myReportFile );
   if ( myFile.open( QIODevice::WriteOnly | QIODevice::Append ) )
   {
@@ -65,16 +83,16 @@ void TestQgsComposerObject::cleanupTestCase()
     myQTextStream << mReport;
     myFile.close();
   }
+
+  QgsApplication::exitQgis();
 }
 
 void TestQgsComposerObject::init()
 {
-
 }
 
 void TestQgsComposerObject::cleanup()
 {
-
 }
 
 void TestQgsComposerObject::creation()
@@ -216,10 +234,74 @@ void TestQgsComposerObject::writeRetrieveDDProperty()
   delete readObject;
 }
 
-bool TestQgsComposerObject::renderCheck( QString testName, QImage &image, int mismatchCount )
+void TestQgsComposerObject::customProperties()
+{
+  QgsComposerObject* object = new QgsComposerObject( mComposition );
+
+  QCOMPARE( object->customProperty( "noprop", "defaultval" ).toString(), QString( "defaultval" ) );
+  QVERIFY( object->customProperties().isEmpty() );
+  object->setCustomProperty( "testprop", "testval" );
+  QCOMPARE( object->customProperty( "testprop", "defaultval" ).toString(), QString( "testval" ) );
+  QCOMPARE( object->customProperties().length(), 1 );
+  QCOMPARE( object->customProperties().at( 0 ), QString( "testprop" ) );
+
+  //test no crash
+  object->removeCustomProperty( "badprop" );
+
+  object->removeCustomProperty( "testprop" );
+  QVERIFY( object->customProperties().isEmpty() );
+  QCOMPARE( object->customProperty( "noprop", "defaultval" ).toString(), QString( "defaultval" ) );
+
+  object->setCustomProperty( "testprop1", "testval1" );
+  object->setCustomProperty( "testprop2", "testval2" );
+  QStringList keys = object->customProperties();
+  QCOMPARE( keys.length(), 2 );
+  QVERIFY( keys.contains( "testprop1" ) );
+  QVERIFY( keys.contains( "testprop2" ) );
+
+  delete object;
+}
+
+void TestQgsComposerObject::writeRetrieveCustomProperties()
+{
+  QgsComposerObject* object = new QgsComposerObject( mComposition );
+  object->setCustomProperty( "testprop", "testval" );
+  object->setCustomProperty( "testprop2", 5 );
+
+  //test writing object with custom properties
+  QDomImplementation DomImplementation;
+  QDomDocumentType documentType =
+    DomImplementation.createDocumentType(
+      "qgis", "http://mrcc.com/qgis.dtd", "SYSTEM" );
+  QDomDocument doc( documentType );
+  QDomElement rootNode = doc.createElement( "qgis" );
+  QDomElement composerObjectElem = doc.createElement( "ComposerObject" );
+  rootNode.appendChild( composerObjectElem );
+  QVERIFY( object->writeXML( composerObjectElem, doc ) );
+
+  //check if object node was written
+  QDomNodeList evalNodeList = rootNode.elementsByTagName( "ComposerObject" );
+  QCOMPARE( evalNodeList.count(), 1 );
+
+  //test reading node containing custom properties
+  QgsComposerObject* readObject = new QgsComposerObject( mComposition );
+  QVERIFY( readObject->readXML( composerObjectElem, doc ) );
+
+  //test retrieved custom properties
+  QCOMPARE( readObject->customProperties().length(), 2 );
+  QVERIFY( readObject->customProperties().contains( QString( "testprop" ) ) );
+  QVERIFY( readObject->customProperties().contains( QString( "testprop2" ) ) );
+  QCOMPARE( readObject->customProperty( "testprop" ).toString(), QString( "testval" ) );
+  QCOMPARE( readObject->customProperty( "testprop2" ).toInt(), 5 );
+
+  delete object;
+  delete readObject;
+}
+
+bool TestQgsComposerObject::renderCheck( const QString& testName, QImage &image, int mismatchCount )
 {
   mReport += "<h2>" + testName + "</h2>\n";
-  QString myTmpDir = QDir::tempPath() + QDir::separator() ;
+  QString myTmpDir = QDir::tempPath() + '/';
   QString myFileName = myTmpDir + testName + ".png";
   image.save( myFileName, "PNG" );
   QgsRenderChecker myChecker;
@@ -231,4 +313,4 @@ bool TestQgsComposerObject::renderCheck( QString testName, QImage &image, int mi
 }
 
 QTEST_MAIN( TestQgsComposerObject )
-#include "moc_testqgscomposerobject.cxx"
+#include "testqgscomposerobject.moc"

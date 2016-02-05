@@ -44,13 +44,13 @@ class CORE_EXPORT QgsInvertedPolygonRenderer : public QgsFeatureRendererV2
     /** Constructor
      * @param embeddedRenderer optional embeddedRenderer. If null, a default one will be assigned
      */
-    QgsInvertedPolygonRenderer( const QgsFeatureRendererV2* embeddedRenderer = 0 );
+    QgsInvertedPolygonRenderer( const QgsFeatureRendererV2* embeddedRenderer = nullptr );
     virtual ~QgsInvertedPolygonRenderer();
 
     /** Used to clone this feature renderer.*/
-    virtual QgsFeatureRendererV2* clone() const;
+    virtual QgsInvertedPolygonRenderer* clone() const override;
 
-    virtual void startRender( QgsRenderContext& context, const QgsFields& fields );
+    virtual void startRender( QgsRenderContext& context, const QgsFields& fields ) override;
 
     /** Renders a given feature.
      * This will here collect features. The actual rendering will be postponed to stopRender()
@@ -61,35 +61,51 @@ class CORE_EXPORT QgsInvertedPolygonRenderer : public QgsFeatureRendererV2
      * @param drawVertexMarker whether this feature has vertex markers (in edit mode usually)
      * @returns true if the rendering was ok
      */
-    virtual bool renderFeature( QgsFeature& feature, QgsRenderContext& context, int layer = -1, bool selected = false, bool drawVertexMarker = false );
+    virtual bool renderFeature( QgsFeature& feature, QgsRenderContext& context, int layer = -1, bool selected = false, bool drawVertexMarker = false ) override;
 
     /**
      * The actual rendering will take place here.
      * Features collected during renderFeature() are rendered using the embedded feature renderer
      */
-    virtual void stopRender( QgsRenderContext& context );
+    virtual void stopRender( QgsRenderContext& context ) override;
 
     /** @returns a textual representation of the renderer */
-    virtual QString dump() const;
+    virtual QString dump() const override;
 
     /** Proxy that will call this method on the embedded renderer. */
-    virtual QList<QString> usedAttributes();
+    virtual QList<QString> usedAttributes() override;
     /** Proxy that will call this method on the embedded renderer. */
-    virtual int capabilities();
+    virtual int capabilities() override;
+    /** Proxy that will call this method on the embedded renderer.
+      @note available in python bindings as symbol2
+     */
+    virtual QgsSymbolV2List symbols( QgsRenderContext& context ) override;
+    /** Proxy that will call this method on the embedded renderer.
+      @note available in python bindings as symbolForFeature2
+     */
+    virtual QgsSymbolV2* symbolForFeature( QgsFeature& feature, QgsRenderContext& context ) override;
+    /** Proxy that will call this method on the embedded renderer.
+      @note available in python bindings as originalSymbolForFeature2
+     */
+    virtual QgsSymbolV2* originalSymbolForFeature( QgsFeature& feat, QgsRenderContext& context ) override;
+    /** Proxy that will call this method on the embedded renderer.
+      @note available in python bindings as symbolsForFeature
+     */
+    virtual QgsSymbolV2List symbolsForFeature( QgsFeature& feat, QgsRenderContext& context ) override;
+    /** Proxy that will call this method on the embedded renderer.
+      @note available in python bindings as originalSymbolsForFeature2
+     */
+    virtual QgsSymbolV2List originalSymbolsForFeature( QgsFeature& feat, QgsRenderContext& context ) override;
     /** Proxy that will call this method on the embedded renderer. */
-    virtual QgsSymbolV2List symbols();
-    /** Proxy that will call this method on the embedded renderer. */
-    virtual QgsSymbolV2* symbolForFeature( QgsFeature& feature );
-    /** Proxy that will call this method on the embedded renderer. */
-    virtual QgsSymbolV2List symbolsForFeature( QgsFeature& feat );
-    /** Proxy that will call this method on the embedded renderer. */
-    virtual QgsLegendSymbologyList legendSymbologyItems( QSize iconSize );
+    virtual QgsLegendSymbologyList legendSymbologyItems( QSize iconSize ) override;
     /** Proxy that will call this method on the embedded renderer.
       @note not available in python bindings
      */
-    virtual QgsLegendSymbolList legendSymbolItems( double scaleDenominator = -1, QString rule = "" );
-    /** Proxy that will call this method on the embedded renderer. */
-    virtual bool willRenderFeature( QgsFeature& feat );
+    virtual QgsLegendSymbolList legendSymbolItems( double scaleDenominator = -1, const QString& rule = "" ) override;
+    /** Proxy that will call this method on the embedded renderer.
+      @note available in python bindings as willRenderFeature2
+     */
+    virtual bool willRenderFeature( QgsFeature& feat, QgsRenderContext& context ) override;
 
     /** Creates a renderer out of an XML, for loading*/
     static QgsFeatureRendererV2* create( QDomElement& element );
@@ -98,9 +114,9 @@ class CORE_EXPORT QgsInvertedPolygonRenderer : public QgsFeatureRendererV2
      * @param doc the XML document where to create the XML subtree
      * @returns the created XML subtree
      */
-    virtual QDomElement save( QDomDocument& doc );
+    virtual QDomElement save( QDomDocument& doc ) override;
 
-    /** sets the embedded renderer
+    /** Sets the embedded renderer
      * @param subRenderer the embedded renderer (will be cloned)
      */
     void setEmbeddedRenderer( const QgsFeatureRendererV2* subRenderer );
@@ -113,12 +129,12 @@ class CORE_EXPORT QgsInvertedPolygonRenderer : public QgsFeatureRendererV2
     /**
         @param enabled enables or disables the preprocessing.
         When enabled, geometries will be merged with an union before being rendered.
-        It allows to fix some rendering artefacts (when rendering overlapping polygons for instance).
+        It allows fixing some rendering artifacts (when rendering overlapping polygons for instance).
         This will involve some CPU-demanding computations and is thus disabled by default.
     */
     void setPreprocessingEnabled( bool enabled ) { mPreprocessingEnabled = enabled; }
 
-    /** creates a QgsInvertedPolygonRenderer by a conversion from an existing renderer.
+    /** Creates a QgsInvertedPolygonRenderer by a conversion from an existing renderer.
         @note added in 2.5
         @returns a new renderer if the conversion was possible, otherwise 0.
         */
@@ -140,19 +156,19 @@ class CORE_EXPORT QgsInvertedPolygonRenderer : public QgsFeatureRendererV2
       QgsFeature feature;             //< one feature (for attriute-based rendering)
     };
     typedef QVector<CombinedFeature> FeatureCategoryVector;
-    /** where features are stored, based on the index of their symbol category @see mSymbolCategories */
+    /** Where features are stored, based on the index of their symbol category @see mSymbolCategories */
     FeatureCategoryVector mFeaturesCategories;
 
-    /** maps a category to an index */
+    /** Maps a category to an index */
     QMap<QByteArray, int> mSymbolCategories;
 
-    /** the polygon used as exterior ring that covers the current extent */
+    /** The polygon used as exterior ring that covers the current extent */
     QgsPolygon mExtentPolygon;
 
-    /** the context used for rendering */
+    /** The context used for rendering */
     QgsRenderContext mContext;
 
-    /** fields of each feature*/
+    /** Fields of each feature*/
     QgsFields mFields;
 
     /** Class used to represent features that must be rendered
@@ -169,7 +185,7 @@ class CORE_EXPORT QgsInvertedPolygonRenderer : public QgsFeatureRendererV2
     };
     QList<FeatureDecoration> mFeatureDecorations;
 
-    /** whether to preprocess (merge) geometries before rendering*/
+    /** Whether to preprocess (merge) geometries before rendering*/
     bool mPreprocessingEnabled;
 };
 

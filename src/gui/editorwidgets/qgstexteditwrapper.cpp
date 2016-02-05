@@ -3,7 +3,7 @@
      --------------------------------------
     Date                 : 5.1.2014
     Copyright            : (C) 2014 Matthias Kuhn
-    Email                : matthias dot kuhn at gmx dot ch
+    Email                : matthias at opengis dot ch
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -22,11 +22,14 @@
 #include <QSettings>
 
 QgsTextEditWrapper::QgsTextEditWrapper( QgsVectorLayer* vl, int fieldIdx, QWidget* editor, QWidget* parent )
-    :  QgsEditorWidgetWrapper( vl, fieldIdx, editor, parent )
+    : QgsEditorWidgetWrapper( vl, fieldIdx, editor, parent )
+    , mTextEdit( nullptr )
+    , mPlainTextEdit( nullptr )
+    , mLineEdit( nullptr )
 {
 }
 
-QVariant QgsTextEditWrapper::value()
+QVariant QgsTextEditWrapper::value() const
 {
   QString v;
 
@@ -55,8 +58,17 @@ QVariant QgsTextEditWrapper::value()
   if (( v.isEmpty() && ( field().type() == QVariant::Int || field().type() == QVariant::Double || field().type() == QVariant::LongLong || field().type() == QVariant::Date ) ) ||
       v == QSettings().value( "qgis/nullValue", "NULL" ).toString() )
     return QVariant( field().type() );
+
+  if ( !defaultValue().isNull() && v == defaultValue().toString() )
+  {
+    return defaultValue();
+  }
+
+  QVariant res( v );
+  if ( field().convertCompatible( res ) )
+    return res;
   else
-    return QVariant( v );
+    return QVariant( field().type() );
 }
 
 QWidget* QgsTextEditWrapper::createWidget( QWidget* parent )
@@ -92,39 +104,64 @@ void QgsTextEditWrapper::initWidget( QWidget* editor )
 
   if ( mLineEdit )
   {
-    mLineEdit->setValidator( new QgsFieldValidator( mLineEdit, field() ) );
+    mLineEdit->setValidator( new QgsFieldValidator( mLineEdit, field(), defaultValue().toString() ) );
+
+    QVariant defVal = defaultValue();
+    if ( defVal.isNull() )
+    {
+      defVal = QSettings().value( "qgis/nullValue", "NULL" );
+    }
 
     QgsFilterLineEdit *fle = qobject_cast<QgsFilterLineEdit*>( mLineEdit );
-    if ( fle && !( field().type() == QVariant::Int || field().type() == QVariant::Double || field().type() == QVariant::LongLong || field().type() == QVariant::Date ) )
+    if ( field().type() == QVariant::Int || field().type() == QVariant::Double || field().type() == QVariant::LongLong || field().type() == QVariant::Date )
     {
-      fle->setNullValue( QSettings().value( "qgis/nullValue", "NULL" ).toString() );
+      mLineEdit->setPlaceholderText( defVal.toString() );
+    }
+    else if ( fle )
+    {
+      fle->setNullValue( defVal.toString() );
     }
 
     connect( mLineEdit, SIGNAL( textChanged( QString ) ), this, SLOT( valueChanged( QString ) ) );
+
+    mWritablePalette = mLineEdit->palette();
+    mReadOnlyPalette = mLineEdit->palette();
+    mReadOnlyPalette.setColor( QPalette::Text, mWritablePalette.color( QPalette::Disabled, QPalette::Text ) );
   }
 }
 
-void QgsTextEditWrapper::setValue( const QVariant& value )
+bool QgsTextEditWrapper::valid() const
+{
+  return mLineEdit || mTextEdit || mPlainTextEdit;
+}
+
+void QgsTextEditWrapper::setValue( const QVariant& val )
 {
   QString v;
-  if ( value.isNull() )
+  if ( val.isNull() )
   {
     if ( !( field().type() == QVariant::Int || field().type() == QVariant::Double || field().type() == QVariant::LongLong || field().type() == QVariant::Date ) )
       v = QSettings().value( "qgis/nullValue", "NULL" ).toString();
   }
   else
-    v = value.toString();
+    v = val.toString();
 
   if ( mTextEdit )
   {
-    if ( config( "UseHtml" ).toBool() )
-      mTextEdit->setHtml( v );
-    else
-      mTextEdit->setPlainText( v );
+    if ( val != value() )
+    {
+      if ( config( "UseHtml" ).toBool() )
+        mTextEdit->setHtml( v );
+      else
+        mTextEdit->setPlainText( v );
+    }
   }
 
   if ( mPlainTextEdit )
-    mPlainTextEdit->setPlainText( v );
+  {
+    if ( val != value() )
+      mPlainTextEdit->setPlainText( v );
+  }
 
   if ( mLineEdit )
     mLineEdit->setText( v );
@@ -139,5 +176,11 @@ void QgsTextEditWrapper::setEnabled( bool enabled )
     mPlainTextEdit->setReadOnly( !enabled );
 
   if ( mLineEdit )
+  {
     mLineEdit->setReadOnly( !enabled );
+    if ( enabled )
+      mLineEdit->setPalette( mWritablePalette );
+    else
+      mLineEdit->setPalette( mReadOnlyPalette );
+  }
 }

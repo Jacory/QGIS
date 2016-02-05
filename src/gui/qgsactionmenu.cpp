@@ -3,7 +3,7 @@
      --------------------------------------
     Date                 : 11.8.2014
     Copyright            : (C) 2014 Matthias Kuhn
-    Email                : matthias dot kuhn at gmx dot ch
+    Email                : matthias at opengis dot ch
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -16,12 +16,10 @@
 #include "qgsactionmenu.h"
 #include "qgsvectorlayer.h"
 
-#include <QMenuItem>
-
 QgsActionMenu::QgsActionMenu( QgsVectorLayer* layer, const QgsFeature* feature, QWidget*  parent )
     : QMenu( parent )
     , mLayer( layer )
-    , mActions( 0 )
+    , mActions( nullptr )
     , mFeature( feature )
     , mFeatureId( feature->id() )
     , mOwnsFeature( false )
@@ -32,8 +30,8 @@ QgsActionMenu::QgsActionMenu( QgsVectorLayer* layer, const QgsFeature* feature, 
 QgsActionMenu::QgsActionMenu( QgsVectorLayer* layer, const QgsFeatureId fid, QWidget*  parent )
     : QMenu( parent )
     , mLayer( layer )
-    , mActions( 0 )
-    , mFeature( 0 )
+    , mActions( nullptr )
+    , mFeature( nullptr )
     , mFeatureId( fid )
     , mOwnsFeature( false )
 {
@@ -125,6 +123,7 @@ void QgsActionMenu::reloadActions()
 
     QAction* action = new QAction( qaction.icon(), qaction.name(), this );
     action->setData( QVariant::fromValue<ActionData>( ActionData( idx, mFeatureId, mLayer ) ) );
+    action->setIcon( qaction.icon() );
 
     // Only enable items on supported platforms
     if ( !qaction.runable() )
@@ -142,7 +141,7 @@ void QgsActionMenu::reloadActions()
 
   QList<QgsMapLayerAction*> mapLayerActions = QgsMapLayerActionRegistry::instance()->mapLayerActions( mLayer, QgsMapLayerAction::SingleFeature );
 
-  if ( mapLayerActions.size() > 0 )
+  if ( !mapLayerActions.isEmpty() )
   {
     //add a separator between user defined and standard actions
     addSeparator();
@@ -150,7 +149,7 @@ void QgsActionMenu::reloadActions()
     for ( int i = 0; i < mapLayerActions.size(); ++i )
     {
       QgsMapLayerAction* qaction = mapLayerActions.at( i );
-      QAction* action = new QAction( qaction->text(), this );
+      QAction* action = new QAction( qaction->icon(), qaction->text(), this );
       action->setData( QVariant::fromValue<ActionData>( ActionData( qaction, mFeatureId, mLayer ) ) );
       addAction( action );
       connect( action, SIGNAL( triggered() ), this, SLOT( triggerAction() ) );

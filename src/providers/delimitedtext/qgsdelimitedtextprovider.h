@@ -75,54 +75,54 @@ class QgsDelimitedTextProvider : public QgsVectorDataProvider
       GeomAsWkt
     };
 
-    QgsDelimitedTextProvider( QString uri = QString() );
+    explicit QgsDelimitedTextProvider( const QString& uri = QString() );
 
     virtual ~QgsDelimitedTextProvider();
 
     /* Implementation of functions from QgsVectorDataProvider */
 
-    virtual QgsAbstractFeatureSource* featureSource() const;
+    virtual QgsAbstractFeatureSource* featureSource() const override;
 
     /**
      * Returns the permanent storage type for this layer as a friendly name.
      */
-    virtual QString storageType() const;
+    virtual QString storageType() const override;
 
-    virtual QgsFeatureIterator getFeatures( const QgsFeatureRequest& request );
+    virtual QgsFeatureIterator getFeatures( const QgsFeatureRequest& request ) override;
 
     /**
      * Get feature type.
      * @return int representing the feature type
      */
-    virtual QGis::WkbType geometryType() const;
+    virtual QGis::WkbType geometryType() const override;
 
     /**
      * Number of features in the layer
      * @return long containing number of features
      */
-    virtual long featureCount() const;
+    virtual long featureCount() const override;
 
     /**
      * Return a map of indexes with field names for this layer
      * @return map of fields
      */
-    virtual const QgsFields & fields() const;
+    virtual const QgsFields & fields() const override;
 
     /** Returns a bitmask containing the supported capabilities
         Note, some capabilities may change depending on whether
         a spatial filter is active on this provider, so it may
         be prudent to check this value per intended operation.
      */
-    virtual int capabilities() const;
+    virtual int capabilities() const override;
 
     /** Creates a spatial index on the data
      *  @return indexCreated  Returns true if a spatial index is created
      */
-    virtual bool createSpatialIndex();
+    virtual bool createSpatialIndex() override;
 
     /* Implementation of functions from QgsDataProvider */
 
-    /** return a provider name
+    /** Return a provider name
 
         Essentially just returns the provider key.  Should be used to build file
         dialogs so that providers can be shown with their supported types. Thus
@@ -135,9 +135,9 @@ class QgsDelimitedTextProvider : public QgsVectorDataProvider
         behavior and presume that none of the sub-classes are going to do
         anything strange with regards to their name or description?
      */
-    QString name() const;
+    QString name() const override;
 
-    /** return description
+    /** Return description
 
         Return a terse string describing what the provider is.
 
@@ -147,30 +147,30 @@ class QgsDelimitedTextProvider : public QgsVectorDataProvider
         behavior and presume that none of the sub-classes are going to do
         anything strange with regards to their name or description?
      */
-    QString description() const;
+    QString description() const override;
 
     /**
      * Return the extent for this data layer
      */
-    virtual QgsRectangle extent();
+    virtual QgsRectangle extent() override;
 
     /**
      * Returns true if this is a valid delimited file
      */
-    bool isValid();
+    bool isValid() override;
 
-    virtual QgsCoordinateReferenceSystem crs();
+    virtual QgsCoordinateReferenceSystem crs() override;
     /**
      * Set the subset string used to create a subset of features in
      * the layer.
      */
-    virtual bool setSubsetString( QString subset, bool updateFeatureCount = true );
+    virtual bool setSubsetString( const QString& subset, bool updateFeatureCount = true ) override;
 
     /**
      * provider supports setting of subset strings
 
      */
-    virtual bool supportsSubsetString() { return true; }
+    virtual bool supportsSubsetString() override { return true; }
 
     /**
      * Returns the subset definition string (typically sql) currently in
@@ -178,7 +178,7 @@ class QgsDelimitedTextProvider : public QgsVectorDataProvider
      * Must be overridden in the dataprovider, otherwise returns a null
      * QString.
      */
-    virtual QString subsetString()
+    virtual QString subsetString() override
     {
       return mSubsetString;
     }
@@ -209,7 +209,7 @@ class QgsDelimitedTextProvider : public QgsVectorDataProvider
      * @param message  Pointer to a string to receive a status message
      * @return A list of field type strings, empty if not found or not valid
      */
-    QStringList readCsvtFieldTypes( QString filename, QString *message = 0 );
+    QStringList readCsvtFieldTypes( const QString& filename, QString *message = nullptr );
 
   private slots:
 
@@ -217,21 +217,18 @@ class QgsDelimitedTextProvider : public QgsVectorDataProvider
 
   private:
 
-    static QRegExp WktZMRegexp;
-    static QRegExp WktCrdRegexp;
-
     void scanFile( bool buildIndexes );
     void rescanFile();
     void resetCachedSubset();
     void resetIndexes();
     void clearInvalidLines();
-    void recordInvalidLine( QString message );
-    void reportErrors( QStringList messages = QStringList(), bool showDialog = true );
+    void recordInvalidLine( const QString& message );
+    void reportErrors( const QStringList& messages = QStringList(), bool showDialog = false );
     static bool recordIsEmpty( QStringList &record );
-    void setUriParameter( QString parameter, QString value );
+    void setUriParameter( const QString& parameter, const QString& value );
 
 
-    static QgsGeometry *geomFromWkt( QString &sWkt, bool wktHasPrefixRegexp, bool wktHasZM );
+    static QgsGeometry *geomFromWkt( QString &sWkt, bool wktHasPrefixRegexp );
     static bool pointFromXY( QString &sX, QString &sY, QgsPoint &point, const QString& decimalPoint, bool xyDms );
     static double dmsStringToDouble( const QString &sX, bool *xOk );
 
@@ -258,13 +255,8 @@ class QgsDelimitedTextProvider : public QgsVectorDataProvider
     int mYFieldIndex;
     int mWktFieldIndex;
 
-    // Handling of WKT types with .. Z, .. M, and .. ZM geometries (ie
-    // Z values and/or measures).  mWktZMRegexp is used to test for and
-    // remove the Z or M fields, and mWktCrdRegexp is used to remove the
-    // extra coordinate values. mWktPrefix regexp is used to clean up
+    // mWktPrefix regexp is used to clean up
     // prefixes sometimes used for WKT (postgis EWKT, informix SRID)
-
-    bool mWktHasZM;
     bool mWktHasPrefix;
 
     //! Layer extent
@@ -294,15 +286,6 @@ class QgsDelimitedTextProvider : public QgsVectorDataProvider
 
     //! Record file updates, flags rescan required
     bool mRescanRequired;
-
-    struct wkbPoint
-    {
-      unsigned char byteOrder;
-      quint32 wkbType;
-      double x;
-      double y;
-    };
-    wkbPoint mWKBpt;
 
     // Coordinate reference sytem
     QgsCoordinateReferenceSystem mCrs;

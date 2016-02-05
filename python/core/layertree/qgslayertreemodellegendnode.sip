@@ -13,17 +13,22 @@ class QgsLayerTreeModelLegendNode : QObject
 %TypeHeaderCode
 #include <qgslayertreemodellegendnode.h>
 %End
-    
+
   public:
     ~QgsLayerTreeModelLegendNode();
 
     enum LegendNodeRoles
     {
-      RuleKeyRole
+      RuleKeyRole,                    //!< rule key of the node (QString)
+      SymbolV2LegacyRuleKeyRole,      //!< for QgsSymbolV2LegendNode only - legacy rule key (void ptr, to be cast to QgsSymbolV2 ptr)
+      ParentRuleKeyRole               //!< rule key of the parent legend node - for legends with tree hierarchy (QString). Added in 2.8
     };
 
     /** Return pointer to the parent layer node */
-    QgsLayerTreeLayer* parent() const;
+    QgsLayerTreeLayer* layerNode() const;
+
+    /** Return pointer to model owning this legend node */
+    QgsLayerTreeModel* model() const;
 
     /** Return item flags associated with the item. Default implementation returns Qt::ItemIsEnabled. */
     virtual Qt::ItemFlags flags() const;
@@ -41,6 +46,10 @@ class QgsLayerTreeModelLegendNode : QObject
     virtual void setUserLabel( const QString& userLabel );
 
     virtual bool isScaleOK( double scale ) const;
+
+    /** Notification from model that information from associated map view has changed.
+     *  Default implementation does nothing. */
+    virtual void invalidateMapBasedData();
 
     struct ItemContext
     {
@@ -81,7 +90,7 @@ class QgsLayerTreeModelLegendNode : QObject
      * @param symbolSize  Real size of the associated symbol - used for correct positioning when rendering
      * @return Size of the label (may span multiple lines)
      */
-    virtual QSizeF drawSymbolText( const QgsLegendSettings& settings, ItemContext* ctx, const QSizeF& symbolSize ) const;
+    virtual QSizeF drawSymbolText( const QgsLegendSettings& settings, ItemContext* ctx, QSizeF symbolSize ) const;
 
   signals:
     //! Emitted on internal data change so the layer tree model can forward the signal to views
@@ -109,7 +118,7 @@ class QgsSymbolV2LegendNode : QgsLayerTreeModelLegendNode
 #include <qgslayertreemodellegendnode.h>
 %End
   public:
-    QgsSymbolV2LegendNode( QgsLayerTreeLayer* nodeLayer, const QgsLegendSymbolItemV2& item );
+    QgsSymbolV2LegendNode( QgsLayerTreeLayer* nodeLayer, const QgsLegendSymbolItemV2& item, QObject* parent /TransferThis/ = 0 );
     ~QgsSymbolV2LegendNode();
 
     virtual Qt::ItemFlags flags() const;
@@ -123,6 +132,47 @@ class QgsSymbolV2LegendNode : QgsLayerTreeModelLegendNode
     void setUserLabel( const QString& userLabel );
 
     virtual bool isScaleOK( double scale ) const;
+
+    virtual void invalidateMapBasedData();
+
+    //! Set the icon size
+    //! @note added in 2.10
+    void setIconSize( QSize sz );
+    //! @note added in 2.10
+    QSize iconSize() const;
+
+    //! Get the minimum icon size to prevent cropping
+    //! @note added in 2.10
+    QSize minimumIconSize() const;
+
+    /** Returns the symbol used by the legend node.
+     * @see setSymbol()
+     * @note added in QGIS 2.14
+     */
+    const QgsSymbolV2* symbol() const;
+
+    /** Sets the symbol to be used by the legend node. The symbol change is also propagated
+     * to the associated vector layer's renderer.
+     * @param symbol new symbol for node. Ownership is transferred.
+     * @see symbol()
+     * @note added in QGIS 2.14
+     */
+    void setSymbol( QgsSymbolV2* symbol /Transfer/ );
+
+  public slots:
+
+    /** Checks all items belonging to the same layer as this node.
+     * @note added in QGIS 2.14
+     * @see uncheckAllItems()
+     */
+    void checkAllItems();
+
+    /** Unchecks all items belonging to the same layer as this node.
+     * @note added in QGIS 2.14
+     * @see checkAllItems()
+     */
+    void uncheckAllItems();
+
 };
 
 
@@ -137,7 +187,7 @@ class QgsSimpleLegendNode : QgsLayerTreeModelLegendNode
 #include <qgslayertreemodellegendnode.h>
 %End
   public:
-    QgsSimpleLegendNode( QgsLayerTreeLayer* nodeLayer, const QString& label, const QIcon& icon = QIcon(), QObject* parent /TransferThis/ = 0 );
+    QgsSimpleLegendNode( QgsLayerTreeLayer* nodeLayer, const QString& label, const QIcon& icon = QIcon(), QObject* parent /TransferThis/ = 0, const QString& key = QString() );
 
     virtual QVariant data( int role ) const;
 };
@@ -178,6 +228,25 @@ class QgsRasterSymbolLegendNode : QgsLayerTreeModelLegendNode
     virtual QVariant data( int role ) const;
 
     QSizeF drawSymbol( const QgsLegendSettings& settings, ItemContext* ctx, double itemHeight ) const;
-
 };
 
+/**
+ * Implementation of legend node interface for displaying WMS legend entries
+ *
+ * @note added in 2.8
+ */
+class QgsWMSLegendNode : QgsLayerTreeModelLegendNode
+{
+%TypeHeaderCode
+#include <qgslayertreemodellegendnode.h>
+%End
+  public:
+    QgsWMSLegendNode( QgsLayerTreeLayer* nodeLayer, QObject* parent /TransferThis/ = nullptr );
+
+    virtual QVariant data( int role ) const;
+
+    virtual QSizeF drawSymbol( const QgsLegendSettings& settings, ItemContext* ctx, double itemHeight ) const;
+
+    virtual void invalidateMapBasedData();
+
+};

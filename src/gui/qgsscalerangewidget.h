@@ -18,13 +18,11 @@
 
 #include <QGridLayout>
 #include <QLabel>
-#include <QPushButton>
-
 
 #include "qgscollapsiblegroupbox.h"
 #include "qgsmaplayer.h"
 #include "qgsmapcanvas.h"
-#include "qgsscalecombobox.h"
+#include "qgsscalewidget.h"
 
 
 class GUI_EXPORT QgsScaleRangeWidget : public QWidget
@@ -32,7 +30,7 @@ class GUI_EXPORT QgsScaleRangeWidget : public QWidget
     Q_OBJECT
 
   public:
-    explicit QgsScaleRangeWidget( QWidget *parent = 0 );
+    explicit QgsScaleRangeWidget( QWidget *parent = nullptr );
     ~QgsScaleRangeWidget();
 
     //! set the map canvas which will be used for the current scale buttons
@@ -64,10 +62,6 @@ class GUI_EXPORT QgsScaleRangeWidget : public QWidget
 
     void setScaleRange( double min, double max );
 
-  private slots:
-    void setMaxScaleFromCanvas();
-    void setMinScaleFromCanvas();
-
   private:
     //! pointer to the map canvas used for current buttons.
     QgsMapCanvas* mCanvas;
@@ -76,10 +70,8 @@ class GUI_EXPORT QgsScaleRangeWidget : public QWidget
     QGridLayout* mLayout;
     QLabel* mMaximumScaleIconLabel;
     QLabel* mMinimumScaleIconLabel;
-    QPushButton* mMaximumScaleSetCurrentPushButton;
-    QPushButton* mMinimumScaleSetCurrentPushButton;
-    QgsScaleComboBox* mMaximumScaleComboBox;
-    QgsScaleComboBox* mMinimumScaleComboBox;
+    QgsScaleWidget* mMaximumScaleWidget;
+    QgsScaleWidget* mMinimumScaleWidget;
 };
 
 #endif // QGSSCALERANGEWIDGET_H

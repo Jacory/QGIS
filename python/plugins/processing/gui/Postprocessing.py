@@ -17,6 +17,7 @@
 ***************************************************************************
 """
 
+
 __author__ = 'Victor Olaya'
 __date__ = 'August 2012'
 __copyright__ = '(C) 2012, Victor Olaya'
@@ -26,26 +27,34 @@ __copyright__ = '(C) 2012, Victor Olaya'
 __revision__ = '$Format:%H$'
 
 import os
-from PyQt4.QtGui import *
-from qgis.core import *
-from processing.gui.SilentProgress import SilentProgress
+import traceback
+from PyQt4.QtGui import QApplication
+from PyQt4.QtCore import QCoreApplication
+from qgis.core import QgsMapLayerRegistry
+
 from processing.core.ProcessingConfig import ProcessingConfig
+from processing.core.ProcessingResults import ProcessingResults
+from processing.core.ProcessingLog import ProcessingLog
+
 from processing.gui.ResultsDialog import ResultsDialog
 from processing.gui.RenderingStyles import RenderingStyles
-from processing.gui.CouldNotLoadResultsDialog import CouldNotLoadResultsDialog
+from processing.gui.MessageDialog import MessageDialog
+from processing.gui.SilentProgress import SilentProgress
+
 from processing.core.outputs import OutputRaster
 from processing.core.outputs import OutputVector
 from processing.core.outputs import OutputTable
-from processing.core.ProcessingResults import ProcessingResults
 from processing.core.outputs import OutputHTML
+
 from processing.tools import dataobjects
+
 
 def handleAlgorithmResults(alg, progress=None, showResults=True):
     wrongLayers = []
     htmlResults = False
     if progress is None:
         progress = SilentProgress()
-    progress.setText('Loading resulting layers')
+    progress.setText(QCoreApplication.translate('Postprocessing', 'Loading resulting layers'))
     i = 0
     for out in alg.outputs:
         progress.setPercentage(100 * i / float(len(alg.outputs)))
@@ -53,9 +62,9 @@ def handleAlgorithmResults(alg, progress=None, showResults=True):
             continue
         if isinstance(out, (OutputRaster, OutputVector, OutputTable)):
             try:
-                if out.value.startswith('memory:'):
-                    layer = out.memoryLayer
-                    QgsMapLayerRegistry.instance().addMapLayers([layer])
+                if hasattr(out, "layer") and out.layer is not None:
+                    out.layer.setLayerName(out.description)
+                    QgsMapLayerRegistry.instance().addMapLayers([out.layer])
                 else:
                     if ProcessingConfig.getSetting(
                             ProcessingConfig.USE_FILENAME_AS_LAYER_NAME):
@@ -63,20 +72,26 @@ def handleAlgorithmResults(alg, progress=None, showResults=True):
                     else:
                         name = out.description
                     dataobjects.load(out.value, name, alg.crs,
-                            RenderingStyles.getStyle(alg.commandLineName(),
-                            out.name))
-            except Exception, e:
-                wrongLayers.append(out)
+                                     RenderingStyles.getStyle(alg.commandLineName(),
+                                                              out.name))
+            except Exception:
+                ProcessingLog.addToLog(ProcessingLog.LOG_ERROR,
+                                       "Error loading result layer:\n" + traceback.format_exc())
+                wrongLayers.append(out.description)
         elif isinstance(out, OutputHTML):
             ProcessingResults.addResult(out.description, out.value)
             htmlResults = True
         i += 1
+
+    QApplication.restoreOverrideCursor()
     if wrongLayers:
-        QApplication.restoreOverrideCursor()
-        dlg = CouldNotLoadResultsDialog(wrongLayers, alg)
-        dlg.exec_()
+        msg = "The following layers were not correctly generated.<ul>"
+        msg += "".join(["<li>%s</li>" % lay for lay in wrongLayers]) + "</ul>"
+        msg += "You can check the log messages to find more information about the execution of the algorithm"
+        progress.error(msg)
 
     if showResults and htmlResults and not wrongLayers:
-        QApplication.restoreOverrideCursor()
         dlg = ResultsDialog()
         dlg.exec_()
+
+    return len(wrongLayers) == 0

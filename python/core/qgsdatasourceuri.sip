@@ -12,7 +12,6 @@ class QgsDataSourceURI
 %End
 
   public:
-    //! \note enumeration added in version 1.1
     enum SSLmode { SSLprefer, SSLdisable, SSLallow, SSLrequire };
 
     //! default constructor
@@ -22,17 +21,15 @@ class QgsDataSourceURI
     QgsDataSourceURI( QString uri );
 
     //! return connection part of URI
-    QString connectionInfo() const;
+    QString connectionInfo( bool expandAuthConfig = true ) const;
 
     //! return complete uri
-    QString uri() const;
+    QString uri( bool expandAuthConfig = true ) const;
 
     //! return complete encoded uri (generic mode)
-    // \note added in 1.9
     QByteArray encodedUri() const;
 
     //! set complete encoded uri (generic mode)
-    // \note added in 1.9
     void setEncodedUri( const QString & uri );
 
     //! quoted table name
@@ -40,46 +37,41 @@ class QgsDataSourceURI
 
     //! Set generic param (generic mode)
     // \note if key exists, another is inserted
-    // \note added in 1.9
     void setParam( const QString &key, const QString &value );
+    //! @note available in python as setParamList
     void setParam( const QString &key, const QStringList &value ) /PyName=setParamList/;
 
     //! Remove generic param (generic mode)
     // \note remove all occurrences of key, returns number of params removed
-    // \note added in 1.9
     int removeParam( const QString &key );
 
     //! Get generic param (generic mode)
-    // \note added in 1.9
     QString param( const QString &key ) const;
 
     //! Get multiple generic param (generic mode)
-    // \note added in 1.9
     QStringList params( const QString &key ) const;
 
     //! Test if param exists (generic mode)
-    // \note added in 1.9
     bool hasParam( const QString &key ) const;
 
     //! Set all connection related members at once
-    //! \note This optional sslmode parameter has been added in version 1.1
     void setConnection( const QString& aHost,
                         const QString& aPort,
                         const QString& aDatabase,
                         const QString& aUsername,
                         const QString& aPassword,
-                        SSLmode sslmode = SSLprefer );
+                        SSLmode sslmode = SSLprefer,
+                        const QString& authConfigId = QString() );
 
     //! Set all connection related members at once (for the service case)
-    //! \note This optional sslmode parameter has been added in version 1.7
     void setConnection( const QString& aService,
                         const QString& aDatabase,
                         const QString& aUsername,
                         const QString& aPassword,
-                        SSLmode sslmode = SSLprefer );
+                        SSLmode sslmode = SSLprefer,
+                        const QString& authConfigId = QString() );
 
     //! Set database
-    // \note added in 1.4
     void setDatabase( const QString &database );
 
     //! Set all data source related members at once
@@ -89,17 +81,19 @@ class QgsDataSourceURI
                         const QString& aSql = QString(),
                         const QString& aKeyColumn = QString() );
 
+    //! set authentication configuration ID
+    void setAuthConfigId( const QString& authcfg );
+
     //! set username
-    // added in 1.5
-    void setUsername( QString username );
+    void setUsername( const QString& username );
 
     //! set password
-    // added in 1.5
-    void setPassword( QString password );
+    void setPassword( const QString& password );
 
     //! Removes password element from uris
     static QString removePassword( const QString& aUri );
 
+    QString authConfigId() const;
     QString username() const;
     QString schema() const;
     QString table() const;
@@ -107,7 +101,6 @@ class QgsDataSourceURI
     QString geometryColumn() const;
 
     //! set use Estimated Metadata
-    // added in 1.5
     void setUseEstimatedMetadata( bool theFlag );
     bool useEstimatedMetadata() const;
 
@@ -115,27 +108,27 @@ class QgsDataSourceURI
     bool selectAtIdDisabled() const;
 
     void clearSchema();
-    void setSql( QString sql );
 
-    // added in version 1.1
+    //! set the table schema
+    // @note added in 2.11
+    void setSchema( const QString& schema );
+
+    void setSql( const QString& sql );
+
     QString host() const;
     QString database() const;
     QString port() const;
     QString password() const;
     SSLmode sslMode() const;
 
-    // added in 1.7
     QString service() const;
 
-    // added in version 1.2
     QString keyColumn() const;
-    void setKeyColumn( QString column );
+    void setKeyColumn( const QString& column );
 
-    // added in 1.9
     QGis::WkbType wkbType() const;
     void setWkbType( QGis::WkbType type );
 
-    // added in 1.9
     QString srid() const;
-    void setSrid( QString srid );
+    void setSrid( const QString& srid );
 };

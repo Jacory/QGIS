@@ -38,7 +38,7 @@
 #include <QGridLayout>
 #include <QPushButton>
 
-QgsColorButtonV2::QgsColorButtonV2( QWidget *parent, QString cdt, QgsColorSchemeRegistry* registry )
+QgsColorButtonV2::QgsColorButtonV2( QWidget *parent, const QString& cdt, QgsColorSchemeRegistry* registry )
     : QToolButton( parent )
     , mBehaviour( QgsColorButtonV2::ShowDialog )
     , mColorDialogTitle( cdt.isEmpty() ? tr( "Select Color" ) : cdt )
@@ -50,7 +50,7 @@ QgsColorButtonV2::QgsColorButtonV2( QWidget *parent, QString cdt, QgsColorScheme
     , mShowNoColorOption( false )
     , mNoColorString( tr( "No color" ) )
     , mPickingColor( false )
-    , mMenu( 0 )
+    , mMenu( nullptr )
 
 {
   //if a color scheme registry was specified, use it, otherwise use the global instance
@@ -74,7 +74,7 @@ QgsColorButtonV2::~QgsColorButtonV2()
 QSize QgsColorButtonV2::sizeHint() const
 {
   //make sure height of button looks good under different platforms
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
   return QSize( 120, 22 );
 #else
   return QSize( 120, 28 );
@@ -124,7 +124,7 @@ void QgsColorButtonV2::showColorDialog()
     }
     else
     {
-      QgsColorDialogV2 dialog( this, 0, color() );
+      QgsColorDialogV2 dialog( this, nullptr, color() );
       dialog.setTitle( mColorDialogTitle );
       dialog.setAllowAlpha( mAllowAlpha );
 
@@ -172,7 +172,12 @@ void QgsColorButtonV2::mousePressEvent( QMouseEvent *e )
     return;
   }
 
-  if ( e->button() == Qt::LeftButton )
+  if ( e->button() == Qt::RightButton )
+  {
+    QToolButton::showMenu();
+    return;
+  }
+  else if ( e->button() == Qt::LeftButton )
   {
     mDragStartPosition = e->pos();
   }
@@ -337,7 +342,7 @@ void QgsColorButtonV2::setValidColor( const QColor& newColor )
   }
 }
 
-QPixmap QgsColorButtonV2::createMenuIcon( const QColor color, const bool showChecks )
+QPixmap QgsColorButtonV2::createMenuIcon( const QColor &color, const bool showChecks )
 {
   //create an icon pixmap
   QPixmap pixmap( 16, 16 );
@@ -439,7 +444,7 @@ void QgsColorButtonV2::prepareMenu()
   mMenu->addAction( pasteColorAction );
   connect( pasteColorAction, SIGNAL( triggered() ), this, SLOT( pasteColor() ) );
 
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
   //disabled for OSX, as it is impossible to grab the mouse under OSX
   //see note for QWidget::grabMouse() re OSX Cocoa
   //http://qt-project.org/doc/qt-4.8/qwidget.html#grabMouse
@@ -508,31 +513,10 @@ void QgsColorButtonV2::setColor( const QColor &color )
 
 void QgsColorButtonV2::addRecentColor( const QColor& color )
 {
-  if ( !color.isValid() )
-  {
-    return;
-  }
-
-  //strip alpha from color
-  QColor opaqueColor = color;
-  opaqueColor.setAlpha( 255 );
-
-  QSettings settings;
-  QList< QVariant > recentColorVariants = settings.value( QString( "/colors/recent" ) ).toList();
-  QVariant colorVariant = QVariant( opaqueColor );
-  recentColorVariants.removeAll( colorVariant );
-
-  recentColorVariants.prepend( colorVariant );
-
-  while ( recentColorVariants.count() > 20 )
-  {
-    recentColorVariants.pop_back();
-  }
-
-  settings.setValue( QString( "/colors/recent" ), recentColorVariants );
+  QgsRecentColorScheme::addRecentColor( color );
 }
 
-void QgsColorButtonV2::setButtonBackground( const QColor color )
+void QgsColorButtonV2::setButtonBackground( const QColor &color )
 {
   QColor backgroundColor = color;
 
@@ -553,7 +537,7 @@ void QgsColorButtonV2::setButtonBackground( const QColor color )
       QRect buttonSize = QApplication::style()->subControlRect( QStyle::CC_ToolButton, &opt, QStyle::SC_ToolButton,
                          this );
       //make sure height of icon looks good under different platforms
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
       mIconSize = QSize( buttonSize.width() - 10, height() - 6 );
 #else
       mIconSize = QSize( buttonSize.width() - 10, height() - 12 );
@@ -564,14 +548,14 @@ void QgsColorButtonV2::setButtonBackground( const QColor color )
   else
   {
     //no menu
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
     currentIconSize = QSize( width() - 10, height() - 6 );
 #else
     currentIconSize = QSize( width() - 10, height() - 12 );
 #endif
   }
 
-  if ( !currentIconSize.isValid() )
+  if ( !currentIconSize.isValid() || currentIconSize.width() <= 0 || currentIconSize.height() <= 0 )
   {
     return;
   }
@@ -642,7 +626,7 @@ void QgsColorButtonV2::setAllowAlpha( const bool allowAlpha )
   mAllowAlpha = allowAlpha;
 }
 
-void QgsColorButtonV2::setColorDialogTitle( const QString title )
+void QgsColorButtonV2::setColorDialogTitle( const QString& title )
 {
   mColorDialogTitle = title;
 }
@@ -654,7 +638,7 @@ QString QgsColorButtonV2::colorDialogTitle() const
 
 void QgsColorButtonV2::setShowMenu( const bool showMenu )
 {
-  setMenu( showMenu ? mMenu : 0 );
+  setMenu( showMenu ? mMenu : nullptr );
   setPopupMode( showMenu ? QToolButton::MenuButtonPopup : QToolButton::DelayedPopup );
   //force recalculation of icon size
   mIconSize = QSize();
@@ -666,7 +650,7 @@ void QgsColorButtonV2::setBehaviour( const QgsColorButtonV2::Behaviour behaviour
   mBehaviour = behaviour;
 }
 
-void QgsColorButtonV2::setDefaultColor( const QColor color )
+void QgsColorButtonV2::setDefaultColor( const QColor& color )
 {
   mDefaultColor = color;
 }

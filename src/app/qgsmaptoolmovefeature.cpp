@@ -21,13 +21,17 @@
 #include "qgsvectordataprovider.h"
 #include "qgsvectorlayer.h"
 #include "qgstolerance.h"
-#include <QMessageBox>
+#include "qgisapp.h"
+
 #include <QMouseEvent>
 #include <QSettings>
 #include <limits>
-QgsMapToolMoveFeature::QgsMapToolMoveFeature( QgsMapCanvas* canvas ): QgsMapToolEdit( canvas ), mRubberBand( 0 )
-{
 
+QgsMapToolMoveFeature::QgsMapToolMoveFeature( QgsMapCanvas* canvas )
+    : QgsMapToolEdit( canvas )
+    , mRubberBand( nullptr )
+{
+  mToolName = tr( "Move feature" );
 }
 
 QgsMapToolMoveFeature::~QgsMapToolMoveFeature()
@@ -35,7 +39,7 @@ QgsMapToolMoveFeature::~QgsMapToolMoveFeature()
   delete mRubberBand;
 }
 
-void QgsMapToolMoveFeature::canvasMoveEvent( QMouseEvent * e )
+void QgsMapToolMoveFeature::canvasMoveEvent( QgsMapMouseEvent* e )
 {
   if ( mRubberBand )
   {
@@ -48,10 +52,10 @@ void QgsMapToolMoveFeature::canvasMoveEvent( QMouseEvent * e )
   }
 }
 
-void QgsMapToolMoveFeature::canvasPressEvent( QMouseEvent * e )
+void QgsMapToolMoveFeature::canvasPressEvent( QgsMapMouseEvent* e )
 {
   delete mRubberBand;
-  mRubberBand = 0;
+  mRubberBand = nullptr;
 
   QgsVectorLayer* vlayer = currentVectorLayer();
   if ( !vlayer )
@@ -90,9 +94,9 @@ void QgsMapToolMoveFeature::canvasPressEvent( QMouseEvent * e )
     QgsFeature f;
     while ( fit.nextFeature( f ) )
     {
-      if ( f.geometry() )
+      if ( f.constGeometry() )
       {
-        double currentDistance = pointGeometry->distance( *f.geometry() );
+        double currentDistance = pointGeometry->distance( *f.constGeometry() );
         if ( currentDistance < minDistance )
         {
           minDistance = currentDistance;
@@ -113,7 +117,7 @@ void QgsMapToolMoveFeature::canvasPressEvent( QMouseEvent * e )
     mMovedFeatures << cf.id(); //todo: take the closest feature, not the first one...
 
     mRubberBand = createRubberBand( vlayer->geometryType() );
-    mRubberBand->setToGeometry( cf.geometry(), vlayer );
+    mRubberBand->setToGeometry( cf.constGeometry(), vlayer );
   }
   else
   {
@@ -125,7 +129,7 @@ void QgsMapToolMoveFeature::canvasPressEvent( QMouseEvent * e )
 
     while ( it.nextFeature( feat ) )
     {
-      mRubberBand->addGeometry( feat.geometry(), vlayer );
+      mRubberBand->addGeometry( feat.constGeometry(), vlayer );
     }
   }
 
@@ -136,7 +140,7 @@ void QgsMapToolMoveFeature::canvasPressEvent( QMouseEvent * e )
 
 }
 
-void QgsMapToolMoveFeature::canvasReleaseEvent( QMouseEvent * e )
+void QgsMapToolMoveFeature::canvasReleaseEvent( QgsMapMouseEvent* e )
 {
   //QgsDebugMsg("entering.");
   if ( !mRubberBand )
@@ -156,12 +160,12 @@ void QgsMapToolMoveFeature::canvasReleaseEvent( QMouseEvent * e )
   double dx = stopPointLayerCoords.x() - startPointLayerCoords.x();
   double dy = stopPointLayerCoords.y() - startPointLayerCoords.y();
   vlayer->beginEditCommand( tr( "Feature moved" ) );
-  foreach ( QgsFeatureId id, mMovedFeatures )
+  Q_FOREACH ( QgsFeatureId id, mMovedFeatures )
   {
     vlayer->translateFeature( id, dx, dy );
   }
   delete mRubberBand;
-  mRubberBand = 0;
+  mRubberBand = nullptr;
   mCanvas->refresh();
   vlayer->endEditCommand();
 }
@@ -171,7 +175,7 @@ void QgsMapToolMoveFeature::deactivate()
 {
   //delete rubber band
   delete mRubberBand;
-  mRubberBand = 0;
+  mRubberBand = nullptr;
 
   QgsMapTool::deactivate();
 }

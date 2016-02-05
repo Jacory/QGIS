@@ -21,7 +21,7 @@
 #include <QFont>
 #include <QDebug>
 
-QgsCodeEditor::QgsCodeEditor( QWidget *parent, QString title, bool folding, bool margin )
+QgsCodeEditor::QgsCodeEditor( QWidget *parent, const QString& title, bool folding, bool margin )
     : QsciScintilla( parent )
     , mWidgetTitle( title )
     , mFolding( folding )
@@ -67,7 +67,7 @@ void QgsCodeEditor::setSciWidget()
   setAutoCompletionSource( QsciScintilla::AcsAPIs );
 }
 
-void QgsCodeEditor::setTitle( const QString title )
+void QgsCodeEditor::setTitle( const QString& title )
 {
   setWindowTitle( title );
 }
@@ -106,7 +106,7 @@ void QgsCodeEditor::setFoldingVisible( bool folding )
   }
 }
 
-void QgsCodeEditor::insertText( const QString theText )
+void QgsCodeEditor::insertText( const QString& theText )
 {
   // Insert the text or replace selected text
   if ( hasSelectedText() )
@@ -125,31 +125,21 @@ void QgsCodeEditor::insertText( const QString theText )
 // Settings for font and fontsize
 bool QgsCodeEditor::isFixedPitch( const QFont& font )
 {
-  const QFontInfo fi( font );
-  return fi.fixedPitch();
+  return font.fixedPitch();
 }
 
 QFont QgsCodeEditor::getMonospaceFont()
 {
-  QFont font( "monospace" );
-  if ( isFixedPitch( font ) )
-  {
-    return font;
-  }
-  font.setStyleHint( QFont::Monospace );
-  if ( isFixedPitch( font ) )
-  {
-    return font;
-  }
+  QSettings settings;
+  QString loadFont = settings.value( "pythonConsole/fontfamilytextEditor", "Monospace" ).toString();
+  int fontSize = settings.value( "pythonConsole/fontsizeEditor", 10 ).toInt();
+
+  QFont font( loadFont );
+  font.setFixedPitch( true );
+  font.setPointSize( fontSize );
   font.setStyleHint( QFont::TypeWriter );
-  if ( isFixedPitch( font ) )
-  {
-    return font;
-  }
-  font.setFamily( "courier" );
-  if ( isFixedPitch( font ) )
-  {
-    return font;
-  }
+  font.setStretch( QFont::SemiCondensed );
+  font.setLetterSpacing( QFont::PercentageSpacing, 87.0 );
+  font.setBold( false );
   return font;
 }

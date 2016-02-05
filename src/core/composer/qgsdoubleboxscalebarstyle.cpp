@@ -25,7 +25,7 @@ QgsDoubleBoxScaleBarStyle::QgsDoubleBoxScaleBarStyle( const QgsComposerScaleBar*
 
 }
 
-QgsDoubleBoxScaleBarStyle::QgsDoubleBoxScaleBarStyle(): QgsScaleBarStyle( 0 )
+QgsDoubleBoxScaleBarStyle::QgsDoubleBoxScaleBarStyle(): QgsScaleBarStyle( nullptr )
 {
 
 }
@@ -58,8 +58,6 @@ void QgsDoubleBoxScaleBarStyle::draw( QPainter* p, double xOffset ) const
   mScaleBar->segmentPositions( segmentInfo );
 
   bool useColor = true; //alternate brush color/white
-
-
 
   QList<QPair<double, double> >::const_iterator segmentIt = segmentInfo.constBegin();
   for ( ; segmentIt != segmentInfo.constEnd(); ++segmentIt )

@@ -44,10 +44,6 @@ from qgis.gui import QgsRubberBand
 from owslib.csw import CatalogueServiceWeb
 from owslib.fes import BBox, PropertyIsLike
 from owslib.ows import ExceptionReport
-from owslib.wcs import WebCoverageService
-from owslib.wfs import WebFeatureService
-from owslib.wms import WebMapService
-from owslib.wmts import WebMapTileService
 
 from MetaSearch import link_types
 from MetaSearch.dialogs.manageconnectionsdialog import ManageConnectionsDialog
@@ -55,14 +51,17 @@ from MetaSearch.dialogs.newconnectiondialog import NewConnectionDialog
 from MetaSearch.dialogs.recorddialog import RecordDialog
 from MetaSearch.dialogs.xmldialog import XMLDialog
 from MetaSearch.util import (get_connections_from_file, get_ui_class,
-                             highlight_xml, normalize_text, open_url,
-                             render_template, StaticContext)
+                             get_help_url, highlight_xml, normalize_text,
+                             open_url, render_template, serialize_string,
+                             StaticContext)
 
 BASE_CLASS = get_ui_class('maindialog.ui')
 
 
 class MetaSearchDialog(QDialog, BASE_CLASS):
+
     """main dialogue"""
+
     def __init__(self, iface):
         """init window"""
 
@@ -76,6 +75,9 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
         self.catalog_url = None
         self.context = StaticContext()
 
+        version = self.context.metadata.get('general', 'version')
+        self.setWindowTitle('MetaSearch %s' % version)
+
         self.rubber_band = QgsRubberBand(self.map, True)  # True = a polygon
         self.rubber_band.setColor(QColor(255, 0, 0, 75))
         self.rubber_band.setWidth(5)
@@ -83,6 +85,7 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
         # form inputs
         self.startfrom = 0
         self.maxrecords = 10
+        self.timeout = 10
         self.constraints = []
 
         # Servers tab
@@ -124,6 +127,11 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
         self.btnAddToWcs.clicked.connect(self.add_to_ows)
         self.btnShowXml.clicked.connect(self.show_xml)
 
+        # settings
+        self.radioTitleAsk.clicked.connect(self.set_ows_save_title_ask)
+        self.radioTitleNoAsk.clicked.connect(self.set_ows_save_title_no_ask)
+        self.radioTempName.clicked.connect(self.set_ows_save_temp_name)
+
         self.manageGui()
 
     def manageGui(self):
@@ -141,6 +149,16 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
         self.set_bbox_global()
 
         self.reset_buttons()
+
+        # get preferred connection save strategy from settings and set it
+        save_strat = self.settings.value('/MetaSearch/ows_save_strategy',
+                                         'title_ask')
+        if save_strat == 'temp_name':
+            self.radioTempName.setChecked(True)
+        elif save_strat == 'title_no_ask':
+            self.radioTitleNoAsk.setChecked(True)
+        else:
+            self.radioTitleAsk.setChecked(True)
 
         # install proxy handler if specified in QGIS settings
         self.install_proxy()
@@ -379,10 +397,10 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
             maxx = extent.xMaximum()
             maxy = extent.yMaximum()
 
-        self.leNorth.setText(str(maxy)[0:9])
-        self.leSouth.setText(str(miny)[0:9])
-        self.leWest.setText(str(minx)[0:9])
-        self.leEast.setText(str(maxx)[0:9])
+        self.leNorth.setText(unicode(maxy)[0:9])
+        self.leSouth.setText(unicode(miny)[0:9])
+        self.leWest.setText(unicode(minx)[0:9])
+        self.leEast.setText(unicode(maxx)[0:9])
 
     def set_bbox_global(self):
         """set global bounding box"""
@@ -416,6 +434,9 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
         self.startfrom = 0
         self.maxrecords = self.spnRecords.value()
 
+        # set timeout
+        self.timeout = self.spnTimeout.value()
+
         # bbox
         minx = self.leWest.text()
         miny = self.leSouth.text()
@@ -447,12 +468,12 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
         try:
             self.catalog.getrecords2(constraints=self.constraints,
                                      maxrecords=self.maxrecords, esn='full')
-        except ExceptionReport, err:
+        except ExceptionReport as err:
             QApplication.restoreOverrideCursor()
             QMessageBox.warning(self, self.tr('Search error'),
                                 self.tr('Search error: %s') % err)
             return
-        except Exception, err:
+        except Exception as err:
             QApplication.restoreOverrideCursor()
             QMessageBox.warning(self, self.tr('Connection error'),
                                 self.tr('Connection error: %s') % err)
@@ -473,10 +494,9 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
 
         position = self.catalog.results['returned'] + self.startfrom
 
-        msg = self.tr('Showing %d - %d of %d result%s') % (
-                      self.startfrom + 1, position,
-                       self.catalog.results['matches'],
-                       's'[self.catalog.results['matches'] == 1:])
+        msg = self.tr('Showing %d - %d of %n result(s)', 'number of results',
+                      self.catalog.results['matches']) % (self.startfrom + 1,
+                                                          position)
 
         self.lblResults.setText(msg)
 
@@ -519,7 +539,13 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
             return
 
         identifier = get_item_data(item, 'identifier')
-        record = self.catalog.records[identifier]
+        try:
+            record = self.catalog.records[identifier]
+        except KeyError as err:
+            QMessageBox.warning(self,
+                                self.tr('Record parsing error'),
+                                'Unable to locate record identifier')
+            return
 
         # if the record has a bbox, show a footprint on the map
         if record.bbox is not None:
@@ -532,11 +558,11 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
                     ctr = QgsCoordinateTransform(src, dst)
                     try:
                         geom.transform(ctr)
-                    except Exception, err:
+                    except Exception as err:
                         QMessageBox.warning(
                             self,
                             self.tr('Coordinate Transformation Error'),
-                            str(err))
+                            unicode(err))
                 self.rubber_band.setToGeometry(geom, None)
 
         # figure out if the data is interactive and can be operated on
@@ -618,9 +644,20 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
 
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
 
-        self.catalog.getrecords2(constraints=self.constraints,
-                                 maxrecords=self.maxrecords,
-                                 startposition=self.startfrom, esn='full')
+        try:
+            self.catalog.getrecords2(constraints=self.constraints,
+                                     maxrecords=self.maxrecords,
+                                     startposition=self.startfrom, esn='full')
+        except ExceptionReport as err:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.warning(self, self.tr('Search error'),
+                                self.tr('Search error: %s') % err)
+            return
+        except Exception as err:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.warning(self, self.tr('Connection error'),
+                                self.tr('Connection error: %s') % err)
+            return
 
         QApplication.restoreOverrideCursor()
 
@@ -628,6 +665,8 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
 
     def add_to_ows(self):
         """add to OWS provider connection list"""
+
+        conn_name_matches = []
 
         item = self.treeRecords.currentItem()
 
@@ -659,13 +698,24 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
         keys = self.settings.childGroups()
         self.settings.endGroup()
 
+        for key in keys:
+            if key.startswith(sname):
+                conn_name_matches.append(key)
+        if conn_name_matches:
+            sname = conn_name_matches[-1]
+
         # check for duplicates
-        if sname in keys:
-            msg = self.tr('Connection %s exists. Overwrite?') % sname
-            res = QMessageBox.warning(self, self.tr('Saving server'), msg,
-                                      QMessageBox.Yes | QMessageBox.No)
-            if res != QMessageBox.Yes:
-                return
+        if sname in keys:  # duplicate found
+            if self.radioTitleAsk.isChecked():  # ask to overwrite
+                msg = self.tr('Connection %s exists. Overwrite?') % sname
+                res = QMessageBox.warning(self, self.tr('Saving server'), msg,
+                                          QMessageBox.Yes | QMessageBox.No)
+                if res != QMessageBox.Yes:  # assign new name with serial
+                    sname = serialize_string(sname)
+            elif self.radioTitleNoAsk.isChecked():  # don't ask to overwrite
+                pass
+            elif self.radioTempName.isChecked():  # use temp name
+                sname = serialize_string(sname)
 
         # no dups detected or overwrite is allowed
         self.settings.beginGroup('/Qgis/connections-%s' % stype[1])
@@ -727,13 +777,19 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
 
         try:
             QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
-            cat = CatalogueServiceWeb(self.catalog_url)
+            cat = CatalogueServiceWeb(self.catalog_url, timeout=self.timeout)
             cat.getrecordbyid(
                 [self.catalog.records[identifier].identifier])
-        except ExceptionReport, err:
+        except ExceptionReport as err:
             QApplication.restoreOverrideCursor()
             QMessageBox.warning(self, self.tr('GetRecords error'),
                                 self.tr('Error getting response: %s') % err)
+            return
+        except KeyError as err:
+            QMessageBox.warning(self,
+                                self.tr('Record parsing error'),
+                                'Unable to locate record identifier')
+            QApplication.restoreOverrideCursor()
             return
 
         QApplication.restoreOverrideCursor()
@@ -785,7 +841,7 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
     def help(self):
         """launch help"""
 
-        open_url(self.context.metadata.get('general', 'homepage'))
+        open_url(get_help_url())
 
     def reject(self):
         """back out of dialogue"""
@@ -799,13 +855,14 @@ class MetaSearchDialog(QDialog, BASE_CLASS):
         # connect to the server
         try:
             QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
-            self.catalog = CatalogueServiceWeb(self.catalog_url)
+            self.catalog = CatalogueServiceWeb(self.catalog_url,
+                                               timeout=self.timeout)
             return True
-        except ExceptionReport, err:
+        except ExceptionReport as err:
             msg = self.tr('Error connecting to service: %s') % err
-        except ValueError, err:
+        except ValueError as err:
             msg = self.tr('Value Error: %s') % err
-        except Exception, err:
+        except Exception as err:
             msg = self.tr('Unknown Error: %s') % err
 
         QMessageBox.warning(self, self.tr('CSW Connection error'), msg)

@@ -30,26 +30,29 @@ from LAStoolsAlgorithm import LAStoolsAlgorithm
 from processing.core.parameters import ParameterNumber
 from processing.core.parameters import ParameterSelection
 
+
 class lasoverage(LAStoolsAlgorithm):
 
     CHECK_STEP = "CHECK_STEP"
     OPERATION = "OPERATION"
-    OPERATIONS= ["classify as overlap", "flag as withheld", "remove from output"]
+    OPERATIONS = ["classify as overlap", "flag as withheld", "remove from output"]
 
     def defineCharacteristics(self):
-        self.name = "lasoverage"
-        self.group = "LAStools"
+        self.name, self.i18n_name = self.trAlgorithm('lasoverage')
+        self.group, self.i18n_group = self.trAlgorithm('LAStools')
         self.addParametersVerboseGUI()
         self.addParametersPointInputGUI()
         self.addParametersHorizontalFeetGUI()
         self.addParametersFilesAreFlightlinesGUI()
-        self.addParameter(ParameterNumber(lasoverage.CHECK_STEP, "size of grid used for scan angle check", 0, None, 1.0))
-        self.addParameter(ParameterSelection(lasoverage.OPERATION, "mode of operation", lasoverage.OPERATIONS, 0))
+        self.addParameter(ParameterNumber(lasoverage.CHECK_STEP,
+                                          self.tr("size of grid used for scan angle check"), 0, None, 1.0))
+        self.addParameter(ParameterSelection(lasoverage.OPERATION,
+                                             self.tr("mode of operation"), lasoverage.OPERATIONS, 0))
         self.addParametersPointOutputGUI()
-
+        self.addParametersAdditionalGUI()
 
     def processAlgorithm(self, progress):
-        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lasoverage.exe")]
+        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lasoverage")]
         self.addParametersVerboseCommands(commands)
         self.addParametersPointInputCommands(commands)
         self.addParametersHorizontalFeetCommands(commands)
@@ -57,12 +60,13 @@ class lasoverage(LAStoolsAlgorithm):
         step = self.getParameterValue(lasoverage.CHECK_STEP)
         if step != 1.0:
             commands.append("-step")
-            commands.append(str(step))
+            commands.append(unicode(step))
         operation = self.getParameterValue(lasoverage.OPERATION)
         if operation == 1:
             commands.append("-flag_as_withheld")
         elif operation == 2:
             commands.append("-remove_overage")
         self.addParametersPointOutputCommands(commands)
+        self.addParametersAdditionalCommands(commands)
 
         LAStoolsUtils.runLAStools(commands, progress)

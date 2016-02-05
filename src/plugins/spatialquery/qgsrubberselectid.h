@@ -34,7 +34,7 @@ class QgsRubberSelectId
     * Constructor for a class RubberSelectedId.
     * @param mapCanvas Pointer to the iface.mapCanvas().
     */
-    QgsRubberSelectId( QgsMapCanvas* mapCanvas );
+    explicit QgsRubberSelectId( QgsMapCanvas* mapCanvas );
     /**
     * \brief Destructor
     */
@@ -74,6 +74,8 @@ class QgsRubberSelectId
     int mWidth;
     QGis::GeometryType mGeometryType;
     QgsMapCanvas* mMapCanvas;
+
+    Q_DISABLE_COPY( QgsRubberSelectId )
 };
 
 #endif

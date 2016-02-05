@@ -62,7 +62,7 @@ QgsAttributeActionDialog::QgsAttributeActionDialog( QgsAttributeAction* actions,
   connect( insertFieldButton, SIGNAL( clicked() ), this, SLOT( insertField() ) );
   connect( insertExpressionButton, SIGNAL( clicked() ), this, SLOT( insertExpression() ) );
 
-  connect( chooseIconButton, SIGNAL(clicked()), this, SLOT( chooseIcon() ) );
+  connect( chooseIconButton, SIGNAL( clicked() ), this, SLOT( chooseIcon() ) );
 
   init();
   // Populate the combo box with the field names. Will the field names
@@ -166,7 +166,7 @@ void QgsAttributeActionDialog::browse()
 {
   // Popup a file browser and place the results into the action widget
   QString action = QFileDialog::getOpenFileName(
-                     this, tr( "Select an action", "File dialog window title" ) );
+                     this, tr( "Select an action", "File dialog window title" ), QDir::homePath() );
 
   if ( !action.isNull() )
     actionAction->insertPlainText( action );
@@ -181,7 +181,12 @@ void QgsAttributeActionDialog::insertExpression()
     selText = selText.mid( 2, selText.size() - 4 );
 
   // display the expression builder
-  QgsExpressionBuilderDialog dlg( mActions->layer(), selText, this );
+  QgsExpressionContext context;
+  context << QgsExpressionContextUtils::globalScope()
+  << QgsExpressionContextUtils::projectScope()
+  << QgsExpressionContextUtils::layerScope( mActions->layer() );
+
+  QgsExpressionBuilderDialog dlg( mActions->layer(), selText, this, "generic", context );
   dlg.setWindowTitle( tr( "Insert expression" ) );
 
   QgsDistanceArea myDa;
@@ -312,7 +317,7 @@ void QgsAttributeActionDialog::chooseIcon()
 {
   QList<QByteArray> list = QImageWriter::supportedImageFormats();
   QStringList formatList;
-  Q_FOREACH( const QByteArray& format, list )
+  Q_FOREACH ( const QByteArray& format, list )
     formatList << QString( "*.%1" ).arg( QString( format ) );
 
   QString filter = QString( "Images( %1 ); All( *.* )" ).arg( formatList.join( " " ) );
@@ -421,7 +426,7 @@ QString QgsAttributeActionDialog::uniqueName( QString name )
     while ( !unique )
     {
       QString suffix = QString::number( suffix_num );
-      new_name = name + "_" + suffix;
+      new_name = name + '_' + suffix;
       unique = true;
       for ( int i = 0; i < pos; ++i )
         if ( attributeActionTable->item( i, 0 )->text() == new_name )

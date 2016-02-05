@@ -29,6 +29,7 @@ from LAStoolsAlgorithm import LAStoolsAlgorithm
 
 from processing.core.parameters import ParameterNumber
 
+
 class lastile(LAStoolsAlgorithm):
 
     TILE_SIZE = "TILE_SIZE"
@@ -36,30 +37,38 @@ class lastile(LAStoolsAlgorithm):
     REVERSIBLE = "REVERSIBLE"
 
     def defineCharacteristics(self):
-        self.name = "lastile"
-        self.group = "LAStools"
+        self.name, self.i18n_name = self.trAlgorithm('lastile')
+        self.group, self.i18n_group = self.trAlgorithm('LAStools')
         self.addParametersVerboseGUI()
         self.addParametersPointInputGUI()
         self.addParametersFilesAreFlightlinesGUI()
-        self.addParameter(ParameterNumber(lastile.TILE_SIZE, "tile size (side length of square tile)",  None, None, 1000.0))
-        self.addParameter(ParameterNumber(lastile.BUFFER, "buffer around each tile",  None, None, 0.0))
-        self.addParameter(ParameterNumber(lastile.BUFFER, "make tiling reversible (advanced)", False))
+        self.addParametersApplyFileSourceIdGUI()
+        self.addParameter(ParameterNumber(lastile.TILE_SIZE,
+                                          self.tr("tile size (side length of square tile)"),
+                                          None, None, 1000.0))
+        self.addParameter(ParameterNumber(lastile.BUFFER,
+                                          self.tr("buffer around each tile"), None, None, 0.0))
+        self.addParameter(ParameterNumber(lastile.REVERSIBLE,
+                                          self.tr("make tiling reversible (advanced, usually not needed)"), False))
         self.addParametersPointOutputGUI()
+        self.addParametersAdditionalGUI()
 
     def processAlgorithm(self, progress):
-        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lastile.exe")]
+        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "lastile")]
         self.addParametersVerboseCommands(commands)
         self.addParametersPointInputCommands(commands)
         self.addParametersFilesAreFlightlinesCommands(commands)
+        self.addParametersApplyFileSourceIdCommands(commands)
         tile_size = self.getParameterValue(lastile.TILE_SIZE)
         commands.append("-tile_size")
-        commands.append(str(tile_size))
+        commands.append(unicode(tile_size))
         buffer = self.getParameterValue(lastile.BUFFER)
         if buffer != 0.0:
             commands.append("-buffer")
-            commands.append(str(buffer))
+            commands.append(unicode(buffer))
         if self.getParameterValue(lastile.REVERSIBLE):
             commands.append("-reversible")
         self.addParametersPointOutputCommands(commands)
+        self.addParametersAdditionalCommands(commands)
 
         LAStoolsUtils.runLAStools(commands, progress)

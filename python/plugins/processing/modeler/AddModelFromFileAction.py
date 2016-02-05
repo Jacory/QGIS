@@ -27,32 +27,48 @@ __revision__ = '$Format:%H$'
 
 import os
 import shutil
-from PyQt4 import QtGui
+from PyQt4.QtGui import QIcon, QFileDialog, QMessageBox
+from PyQt4.QtCore import QSettings, QFileInfo
 from processing.gui.ToolboxAction import ToolboxAction
 from processing.modeler.ModelerAlgorithm import ModelerAlgorithm
 from processing.modeler.WrongModelException import WrongModelException
 from processing.modeler.ModelerUtils import ModelerUtils
 
+pluginPath = os.path.split(os.path.dirname(__file__))[0]
+
+
 class AddModelFromFileAction(ToolboxAction):
 
     def __init__(self):
-        self.name = "Add model from file"
-        self.group = 'Tools'
+        self.name = self.tr('Add model from file', 'AddModelFromFileAction')
+        self.group = self.tr('Tools', 'AddModelFromFileAction')
 
     def getIcon(self):
-        return QtGui.QIcon(os.path.dirname(__file__) + '/../images/model.png')
+        return QIcon(os.path.join(pluginPath, 'images', 'model.png'))
 
     def execute(self):
-        filename = QtGui.QFileDialog.getOpenFileName(self.toolbox, 'model files', None,
-                '*.model')
+        settings = QSettings()
+        lastDir = settings.value('Processing/lastModelsDir', '')
+        filename = QFileDialog.getOpenFileName(self.toolbox,
+                                               self.tr('Open model', 'AddModelFromFileAction'), lastDir,
+                                               self.tr('Processing model files (*.model *.MODEL)', 'AddModelFromFileAction'))
         if filename:
             try:
+                settings.setValue('Processing/lastModelsDir',
+                                  QFileInfo(filename).absoluteDir().absolutePath())
+
                 ModelerAlgorithm.fromFile(filename)
             except WrongModelException:
-                QtGui.QMessageBox.warning(self.toolbox, "Error reading model", "The selected file does not contain a valid model")
+                QMessageBox.warning(
+                    self.toolbox,
+                    self.tr('Error reading model', 'AddModelFromFileAction'),
+                    self.tr('The selected file does not contain a valid model', 'AddModelFromFileAction'))
                 return
             except:
-                QtGui.QMessageBox.warning(self.toolbox, "Error reading model", "Cannot read file")
+                QMessageBox.warning(self.toolbox,
+                                    self.tr('Error reading model', 'AddModelFromFileAction'),
+                                    self.tr('Cannot read file', 'AddModelFromFileAction'))
+                return
             destFilename = os.path.join(ModelerUtils.modelsFolder(), os.path.basename(filename))
-            shutil.copyfile(filename,destFilename)
-            self.toolbox.updateProvider('script')
+            shutil.copyfile(filename, destFilename)
+            self.toolbox.updateProvider('model')

@@ -25,7 +25,7 @@ QgsSingleBoxScaleBarStyle::QgsSingleBoxScaleBarStyle( const QgsComposerScaleBar*
 
 }
 
-QgsSingleBoxScaleBarStyle::QgsSingleBoxScaleBarStyle(): QgsScaleBarStyle( 0 )
+QgsSingleBoxScaleBarStyle::QgsSingleBoxScaleBarStyle(): QgsScaleBarStyle( nullptr )
 {
 
 }
@@ -47,7 +47,6 @@ void QgsSingleBoxScaleBarStyle::draw( QPainter* p, double xOffset ) const
   //antialiasing on
   p->setRenderHint( QPainter::Antialiasing, true );
   p->setPen( mScaleBar->pen() );
-
 
   QList<QPair<double, double> > segmentInfo;
   mScaleBar->segmentPositions( segmentInfo );

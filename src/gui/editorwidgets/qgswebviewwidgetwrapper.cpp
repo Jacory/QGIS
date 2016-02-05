@@ -3,7 +3,7 @@
      --------------------------------------
     Date                 : 5.1.2014
     Copyright            : (C) 2014 Matthias Kuhn
-    Email                : matthias dot kuhn at gmx dot ch
+    Email                : matthias at opengis dot ch
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -17,23 +17,32 @@
 
 #include "qgsfilterlineedit.h"
 #include "qgsnetworkaccessmanager.h"
+#include "qgsproject.h"
 
 #include <QGridLayout>
 #include <QFileDialog>
 #include <QSettings>
 
 QgsWebViewWidgetWrapper::QgsWebViewWidgetWrapper( QgsVectorLayer* vl, int fieldIdx, QWidget* editor, QWidget* parent )
-    :  QgsEditorWidgetWrapper( vl, fieldIdx, editor, parent )
+    : QgsEditorWidgetWrapper( vl, fieldIdx, editor, parent )
+    , mWebView( nullptr )
+    , mLineEdit( nullptr )
+    , mButton( nullptr )
 {
 }
 
 void QgsWebViewWidgetWrapper::loadUrl( const QString &url )
 {
+  QString path = url;
+
+  if ( QUrl( url ).isRelative() )
+    path = QDir( QgsProject::instance()->fileInfo().absolutePath() ).filePath( url );
+
   if ( mWebView )
-    mWebView->load( url );
+    mWebView->load( path );
 }
 
-QVariant QgsWebViewWidgetWrapper::value()
+QVariant QgsWebViewWidgetWrapper::value() const
 {
   QVariant v;
 
@@ -118,6 +127,11 @@ void QgsWebViewWidgetWrapper::initWidget( QWidget* editor )
   }
 }
 
+bool QgsWebViewWidgetWrapper::valid() const
+{
+  return mWebView || mButton || mLineEdit;
+}
+
 void QgsWebViewWidgetWrapper::setValue( const QVariant& value )
 {
   if ( mLineEdit )
@@ -152,6 +166,12 @@ void QgsWebViewWidgetWrapper::selectFileName()
   if ( fileName.isNull() )
     return;
 
+  QString projPath = QDir::toNativeSeparators( QDir::cleanPath( QgsProject::instance()->fileInfo().absolutePath() ) );
+  QString filePath = QDir::toNativeSeparators( QDir::cleanPath( QFileInfo( fileName ).absoluteFilePath() ) );
+
+  if ( filePath.startsWith( projPath ) )
+    filePath = QDir( projPath ).relativeFilePath( filePath );
+
   if ( mLineEdit )
-    mLineEdit->setText( QDir::toNativeSeparators( fileName ) );
+    mLineEdit->setText( filePath );
 }

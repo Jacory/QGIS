@@ -16,7 +16,7 @@
 *                                                                         *
 ***************************************************************************
 """
-from processing.modeler.WrongModelException import WrongModelException
+from processing.gui import AlgorithmClassification
 
 __author__ = 'Victor Olaya'
 __date__ = 'August 2012'
@@ -27,33 +27,36 @@ __copyright__ = '(C) 2012, Victor Olaya'
 __revision__ = '$Format:%H$'
 
 import codecs
-import json
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+import sys
+import os
+
+from PyQt4 import uic
+from PyQt4.QtCore import Qt, QRectF, QMimeData, QPoint, QPointF, QSettings, QByteArray
+from PyQt4.QtGui import QGraphicsView, QTreeWidget, QIcon, QMessageBox, QFileDialog, QImage, QPainter, QTreeWidgetItem
+from qgis.core import QgsApplication
 from processing.core.ProcessingConfig import ProcessingConfig
 from processing.core.GeoAlgorithm import GeoAlgorithm
+from processing.core.ProcessingLog import ProcessingLog
 from processing.gui.HelpEditionDialog import HelpEditionDialog
-from processing.gui.ParametersDialog import ParametersDialog
-from processing.gui.AlgorithmClassification import AlgorithmDecorator
+from processing.gui.AlgorithmDialog import AlgorithmDialog
 from processing.modeler.ModelerParameterDefinitionDialog import ModelerParameterDefinitionDialog
 from processing.modeler.ModelerAlgorithm import ModelerAlgorithm, ModelerParameter
 from processing.modeler.ModelerParametersDialog import ModelerParametersDialog
 from processing.modeler.ModelerUtils import ModelerUtils
 from processing.modeler.ModelerScene import ModelerScene
-from processing.core.ProcessingLog import ProcessingLog
-from processing.tools.system import *
+from processing.modeler.WrongModelException import WrongModelException
 
-from processing.ui.ui_DlgModeler import Ui_DlgModeler
+pluginPath = os.path.split(os.path.dirname(__file__))[0]
+WIDGET, BASE = uic.loadUiType(
+    os.path.join(pluginPath, 'ui', 'DlgModeler.ui'))
 
 
-class ModelerDialog(QDialog, Ui_DlgModeler):
+class ModelerDialog(BASE, WIDGET):
 
-    USE_CATEGORIES = '/Processing/UseSimplifiedInterface'
     CANVAS_SIZE = 4000
 
     def __init__(self, alg=None):
-        QDialog.__init__(self)
-
+        super(ModelerDialog, self).__init__(None)
         self.setupUi(self)
 
         self.zoom = 1
@@ -61,6 +64,10 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
         self.setWindowFlags(Qt.WindowMinimizeButtonHint |
                             Qt.WindowMaximizeButtonHint |
                             Qt.WindowCloseButtonHint)
+
+        settings = QSettings()
+        self.splitter.restoreState(settings.value("/Processing/splitterModeler", QByteArray()))
+        self.restoreGeometry(settings.value("/Processing/geometryModeler", QByteArray()))
 
         self.tabWidget.setCurrentIndex(0)
         self.scene = ModelerScene(self)
@@ -82,7 +89,7 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
                 if text in ModelerParameterDefinitionDialog.paramTypes:
                     self.addInputOfType(text, event.pos())
                 else:
-                    alg = ModelerUtils.getAlgorithm(text);
+                    alg = ModelerUtils.getAlgorithm(text)
                     if alg is not None:
                         self._addAlgorithm(alg.getCopy(), event.pos())
                 event.accept()
@@ -96,25 +103,26 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
                 event.ignore()
 
         def _wheelEvent(event):
-            self.view.setTransformationAnchor(QGraphicsView.AnchorUnderMouse);
+            self.view.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
             factor = 1.05
             if event.delta() > 0:
-                factor = 1/factor
+                factor = 1 / factor
             self.view.scale(factor, factor)
-            self.view.centerOn(event.pos().x(), event.pos().y())
             self.repaintModel()
 
         def _enterEvent(e):
             QGraphicsView.enterEvent(self.view, e)
             self.view.viewport().setCursor(Qt.ArrowCursor)
+
         def _mousePressEvent(e):
             QGraphicsView.mousePressEvent(self.view, e)
             self.view.viewport().setCursor(Qt.ArrowCursor)
+
         def _mouseReleaseEvent(e):
             QGraphicsView.mouseReleaseEvent(self.view, e)
             self.view.viewport().setCursor(Qt.ArrowCursor)
 
-        self.view.setDragMode(QGraphicsView.ScrollHandDrag);
+        self.view.setDragMode(QGraphicsView.ScrollHandDrag)
         self.view.dragEnterEvent = _dragEnterEvent
         self.view.dropEvent = _dropEvent
         self.view.dragMoveEvent = _dragMoveEvent
@@ -122,7 +130,6 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
         self.view.enterEvent = _enterEvent
         self.view.mousePressEvent = _mousePressEvent
         self.view.mouseReleaseEvent = _mouseReleaseEvent
-
 
         def _mimeDataInput(items):
             mimeData = QMimeData()
@@ -148,27 +155,20 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
         self.algorithmTree.setDropIndicatorShown(True)
 
         # Set icons
-        self.btnOpen.setIcon(
-                QgsApplication.getThemeIcon('/mActionFileOpen.svg'))
-        self.btnSave.setIcon(
-                QgsApplication.getThemeIcon('/mActionFileSave.svg'))
-        self.btnSaveAs.setIcon(
-                QgsApplication.getThemeIcon('/mActionFileSaveAs.svg'))
-        self.btnExportImage.setIcon(
-                QgsApplication.getThemeIcon('/mActionSaveMapAsImage.png'))
-        self.btnEditHelp.setIcon(QIcon(':/processing/images/edithelp.png'))
-        self.btnRun.setIcon(QIcon(':/processing/images/runalgorithm.png'))
-
-        # Fill trees with inputs and algorithms
-        self.fillInputsTree()
-        self.fillAlgorithmTree()
+        self.btnOpen.setIcon(QgsApplication.getThemeIcon('/mActionFileOpen.svg'))
+        self.btnSave.setIcon(QgsApplication.getThemeIcon('/mActionFileSave.svg'))
+        self.btnSaveAs.setIcon(QgsApplication.getThemeIcon('/mActionFileSaveAs.svg'))
+        self.btnExportImage.setIcon(QgsApplication.getThemeIcon('/mActionSaveMapAsImage.png'))
+        self.btnExportPython.setIcon(QgsApplication.getThemeIcon('/console/iconSaveAsConsole.png'))
+        self.btnEditHelp.setIcon(QIcon(os.path.join(pluginPath, 'images', 'edithelp.png')))
+        self.btnRun.setIcon(QIcon(os.path.join(pluginPath, 'images', 'runalgorithm.png')))
 
         if hasattr(self.searchBox, 'setPlaceholderText'):
             self.searchBox.setPlaceholderText(self.tr('Search...'))
         if hasattr(self.textName, 'setPlaceholderText'):
-            self.textName.setPlaceholderText('[Enter model name here]')
+            self.textName.setPlaceholderText(self.tr('[Enter model name here]'))
         if hasattr(self.textGroup, 'setPlaceholderText'):
-            self.textGroup.setPlaceholderText('[Enter group name here]')
+            self.textGroup.setPlaceholderText(self.tr('[Enter group name here]'))
 
         # Connect signals and slots
         self.inputsTree.doubleClicked.connect(self.addInput)
@@ -179,6 +179,7 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
         self.btnSave.clicked.connect(self.save)
         self.btnSaveAs.clicked.connect(self.saveAs)
         self.btnExportImage.clicked.connect(self.exportAsImage)
+        self.btnExportPython.clicked.connect(self.exportAsPython)
         self.btnEditHelp.clicked.connect(self.editHelp)
         self.btnRun.clicked.connect(self.runModel)
 
@@ -192,6 +193,9 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
             self.alg = ModelerAlgorithm()
             self.alg.modelerdialog = self
 
+        self.fillInputsTree()
+        self.fillAlgorithmTree()
+
         self.view.centerOn(0, 0)
         self.alg.setModelerView(self)
         self.help = None
@@ -202,12 +206,15 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
         self.hasChanged = False
 
     def closeEvent(self, evt):
+        settings = QSettings()
+        settings.setValue("/Processing/splitterModeler", self.splitter.saveState())
+        settings.setValue("/Processing/geometryModeler", self.saveGeometry())
+
         if self.hasChanged:
-            ret = QMessageBox.question(self, self.tr('Message'),
-                    self.tr('There are unsaved changes in model. Close '
-                            'modeler without saving?'),
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No)
+            ret = QMessageBox.question(
+                self, self.tr('Unsaved changes'),
+                self.tr('There are unsaved changes in model. Continue?'),
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 
             if ret == QMessageBox.Yes:
                 evt.accept()
@@ -217,21 +224,28 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
             evt.accept()
 
     def editHelp(self):
-        dlg = HelpEditionDialog(self.alg.getCopy())
+        if self.alg.provider is None:
+            # Might happen if model is opened from modeler dialog
+            self.alg.provider = ModelerUtils.providers['model']
+        alg = self.alg.getCopy()
+        dlg = HelpEditionDialog(alg)
         dlg.exec_()
+        if dlg.descriptions:
+            self.alg.helpContent = dlg.descriptions
+            self.hasChanged = True
 
     def runModel(self):
         if len(self.alg.algs) == 0:
             QMessageBox.warning(self, self.tr('Empty model'),
-                    self.tr("Model doesn't contains any algorithms and/or "
-                            "parameters and can't be executed"))
+                                self.tr("Model doesn't contains any algorithms and/or "
+                                        "parameters and can't be executed"))
             return
 
         if self.alg.provider is None:
             # Might happen if model is opened from modeler dialog
             self.alg.provider = ModelerUtils.providers['model']
         alg = self.alg.getCopy()
-        dlg = ParametersDialog(alg)
+        dlg = AlgorithmDialog(alg)
         dlg.exec_()
 
     def save(self):
@@ -242,8 +256,8 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
 
     def exportAsImage(self):
         filename = unicode(QFileDialog.getSaveFileName(self,
-                           self.tr('Save Model As Image'), '',
-                           self.tr('PNG files (*.png *.PNG)')))
+                                                       self.tr('Save Model As Image'), '',
+                                                       self.tr('PNG files (*.png *.PNG)')))
         if not filename:
             return
 
@@ -266,12 +280,28 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
 
         img.save(filename)
 
+    def exportAsPython(self):
+        filename = unicode(QFileDialog.getSaveFileName(self,
+                                                       self.tr('Save Model As Python Script'), '',
+                                                       self.tr('Python files (*.py *.PY)')))
+        if not filename:
+            return
+
+        if not filename.lower().endswith('.py'):
+            filename += '.py'
+
+        text = self.alg.toPython()
+        with codecs.open(filename, 'w', encoding='utf-8') as fout:
+            fout.write(text)
+        QMessageBox.information(self, self.tr('Model exported'),
+                                self.tr('Model was correctly exported.'))
+
     def saveModel(self, saveAs):
         if unicode(self.textGroup.text()).strip() == '' \
                 or unicode(self.textName.text()).strip() == '':
-            QMessageBox.warning(self, self.tr('Warning'),
-                    self.tr('Please enter group and model names before saving'
-                    ))
+            QMessageBox.warning(
+                self, self.tr('Warning'), self.tr('Please enter group and model names before saving')
+            )
             return
         self.alg.name = unicode(self.textName.text())
         self.alg.group = unicode(self.textGroup.text())
@@ -279,9 +309,9 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
             filename = self.alg.descriptionFile
         else:
             filename = unicode(QFileDialog.getSaveFileName(self,
-                               self.tr('Save Model'),
-                               ModelerUtils.modelsFolder(),
-                               self.tr('Processing models (*.model)')))
+                                                           self.tr('Save Model'),
+                                                           ModelerUtils.modelsFolder(),
+                                                           self.tr('Processing models (*.model)')))
             if filename:
                 if not filename.endswith('.model'):
                     filename += '.model'
@@ -293,14 +323,13 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
             except:
                 if saveAs:
                     QMessageBox.warning(self, self.tr('I/O error'),
-                            self.tr('Unable to save edits. Reason:\n %s')
-                            % unicode(sys.exc_info()[1]))
+                                        self.tr('Unable to save edits. Reason:\n %s') % unicode(sys.exc_info()[1]))
                 else:
                     QMessageBox.warning(self, self.tr("Can't save model"),
-                            self.tr("This model can't be saved in its "
-                                    "original location (probably you do not "
-                                    "have permission to do it). Please, use "
-                                    "the 'Save as...' option."))
+                                        self.tr("This model can't be saved in its "
+                                                "original location (probably you do not "
+                                                "have permission to do it). Please, use "
+                                                "the 'Save as...' option."))
                 return
             fout.write(text)
             fout.close()
@@ -312,8 +341,8 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
 
     def openModel(self):
         filename = unicode(QFileDialog.getOpenFileName(self,
-                           self.tr('Open Model'), ModelerUtils.modelsFolder(),
-                           self.tr('Processing models (*.model)')))
+                                                       self.tr('Open Model'), ModelerUtils.modelsFolder(),
+                                                       self.tr('Processing models (*.model *.MODEL)')))
         if filename:
             try:
                 alg = ModelerAlgorithm.fromFile(filename)
@@ -325,32 +354,29 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
 
                 self.view.centerOn(0, 0)
                 self.hasChanged = False
-            except WrongModelException, e:
+            except WrongModelException as e:
                 ProcessingLog.addToLog(ProcessingLog.LOG_ERROR,
-                            'Could not load model ' + filename + '\n'
-                            + e.msg)
+                                       self.tr('Could not load model %s\n%s') % (filename, e.msg))
                 QMessageBox.critical(self, self.tr('Could not open model'),
-                        self.tr('The selected model could not be loaded.\n'
-                                 'See the log for more information.'))
-            except Exception, e:
+                                     self.tr('The selected model could not be loaded.\n'
+                                             'See the log for more information.'))
+            except Exception as e:
                 ProcessingLog.addToLog(ProcessingLog.LOG_ERROR,
-                            'Could not load model ' + filename + '\n'
-                            + e.args[0])
+                                       self.tr('Could not load model %s\n%s') % (filename, e.args[0]))
                 QMessageBox.critical(self, self.tr('Could not open model'),
-                        self.tr('The selected model could not be loaded.\n'
-                                 'See the log for more information.'))
+                                     self.tr('The selected model could not be loaded.\n'
+                                             'See the log for more information.'))
 
     def repaintModel(self):
         self.scene = ModelerScene()
         self.scene.setSceneRect(QRectF(0, 0, ModelerAlgorithm.CANVAS_SIZE,
-                                ModelerAlgorithm.CANVAS_SIZE))
+                                       ModelerAlgorithm.CANVAS_SIZE))
         self.scene.paintModel(self.alg)
         self.view.setScene(self.scene)
 
-
     def addInput(self):
         item = self.inputsTree.currentItem()
-        paramType = str(item.text(0))
+        paramType = unicode(item.text(0))
         self.addInputOfType(paramType)
 
     def addInputOfType(self, paramType, pos=None):
@@ -361,7 +387,7 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
                 if pos is None:
                     pos = self.getPositionForParameterItem()
                 if isinstance(pos, QPoint):
-                    pos =  QPointF(pos)
+                    pos = QPointF(pos)
                 self.alg.addParameter(ModelerParameter(dlg.param, pos))
                 self.repaintModel()
                 #self.view.ensureVisible(self.scene.getLastParameterItem())
@@ -379,7 +405,7 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
         return QPointF(newX, MARGIN + BOX_HEIGHT / 2)
 
     def fillInputsTree(self):
-        icon = QIcon(os.path.dirname(__file__) + '/../images/input.png')
+        icon = QIcon(os.path.join(pluginPath, 'images', 'input.png'))
         parametersItem = QTreeWidgetItem()
         parametersItem.setText(0, self.tr('Parameters'))
         for paramType in ModelerParameterDefinitionDialog.paramTypes:
@@ -398,25 +424,24 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
             self._addAlgorithm(alg.getCopy())
 
     def _addAlgorithm(self, alg, pos=None):
-            dlg = alg.getCustomModelerParametersDialog(self.alg)
-            if not dlg:
-                dlg = ModelerParametersDialog(alg, self.alg)
-            dlg.exec_()
-            if dlg.alg is not None:
-                if pos is None:
-                    dlg.alg.pos = self.getPositionForAlgorithmItem()
-                else:
-                    dlg.alg.pos = pos
-                if isinstance(dlg.alg.pos, QPoint):
-                    dlg.alg.pos =  QPointF(pos)
-                from processing.modeler.ModelerGraphicItem import ModelerGraphicItem
-                for i, out in enumerate(dlg.alg.outputs):
-                    dlg.alg.outputs[out].pos = dlg.alg.pos + QPointF(ModelerGraphicItem.BOX_WIDTH, (i + 1.5)
-                            * ModelerGraphicItem.BOX_HEIGHT)
-                self.alg.addAlgorithm(dlg.alg)
-                self.repaintModel()
-                #self.view.ensureVisible(self.scene.getLastAlgorithmItem())
-                self.hasChanged = True
+        dlg = alg.getCustomModelerParametersDialog(self.alg)
+        if not dlg:
+            dlg = ModelerParametersDialog(alg, self.alg)
+        dlg.exec_()
+        if dlg.alg is not None:
+            if pos is None:
+                dlg.alg.pos = self.getPositionForAlgorithmItem()
+            else:
+                dlg.alg.pos = pos
+            if isinstance(dlg.alg.pos, QPoint):
+                dlg.alg.pos = QPointF(pos)
+            from processing.modeler.ModelerGraphicItem import ModelerGraphicItem
+            for i, out in enumerate(dlg.alg.outputs):
+                dlg.alg.outputs[out].pos = dlg.alg.pos + QPointF(ModelerGraphicItem.BOX_WIDTH, (i + 1.5)
+                                                                 * ModelerGraphicItem.BOX_HEIGHT)
+            self.alg.addAlgorithm(dlg.alg)
+            self.repaintModel()
+            self.hasChanged = True
 
     def getPositionForAlgorithmItem(self):
         MARGIN = 20
@@ -433,121 +458,22 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
             newY = MARGIN * 2 + BOX_HEIGHT + BOX_HEIGHT / 2
         return QPointF(newX, newY)
 
-
     def fillAlgorithmTree(self):
-        settings = QSettings()
-        useCategories = settings.value(self.USE_CATEGORIES, type=bool)
-        if useCategories:
-            self.fillAlgorithmTreeUsingCategories()
-        else:
-            self.fillAlgorithmTreeUsingProviders()
-
+        self.fillAlgorithmTreeUsingProviders()
         self.algorithmTree.sortItems(0, Qt.AscendingOrder)
 
         text = unicode(self.searchBox.text())
         if text != '':
             self.algorithmTree.expandAll()
 
-    def fillAlgorithmTreeUsingCategories(self):
-        providersToExclude = ['model', 'script']
-        self.algorithmTree.clear()
-        text = unicode(self.searchBox.text())
-        groups = {}
-        allAlgs = ModelerUtils.allAlgs
-        for providerName in allAlgs.keys():
-            provider = allAlgs[providerName]
-            name = 'ACTIVATE_' + providerName.upper().replace(' ', '_')
-            if not ProcessingConfig.getSetting(name):
-                continue
-            if providerName in providersToExclude \
-                    or len(ModelerUtils.providers[providerName].actions) != 0:
-                continue
-            algs = provider.values()
-
-            # Add algorithms
-            for alg in algs:
-                if not alg.showInModeler or alg.allowOnlyOpenedLayers:
-                    continue
-                (altgroup, altsubgroup, altname) = \
-                    AlgorithmDecorator.getGroupsAndName(alg)
-                if altgroup is None:
-                    continue
-                if text == '' or text.lower() in altname.lower():
-                    if altgroup not in groups:
-                        groups[altgroup] = {}
-                    group = groups[altgroup]
-                    if altsubgroup not in group:
-                        groups[altgroup][altsubgroup] = []
-                    subgroup = groups[altgroup][altsubgroup]
-                    subgroup.append(alg)
-
-        if len(groups) > 0:
-            mainItem = QTreeWidgetItem()
-            mainItem.setText(0, 'Geoalgorithms')
-            mainItem.setIcon(0, GeoAlgorithm.getDefaultIcon())
-            mainItem.setToolTip(0, mainItem.text(0))
-            for (groupname, group) in groups.items():
-                groupItem = QTreeWidgetItem()
-                groupItem.setText(0, groupname)
-                groupItem.setIcon(0, GeoAlgorithm.getDefaultIcon())
-                groupItem.setToolTip(0, groupItem.text(0))
-                mainItem.addChild(groupItem)
-                for (subgroupname, subgroup) in group.items():
-                    subgroupItem = QTreeWidgetItem()
-                    subgroupItem.setText(0, subgroupname)
-                    subgroupItem.setIcon(0, GeoAlgorithm.getDefaultIcon())
-                    subgroupItem.setToolTip(0, subgroupItem.text(0))
-                    groupItem.addChild(subgroupItem)
-                    for alg in subgroup:
-                        algItem = TreeAlgorithmItem(alg)
-                        subgroupItem.addChild(algItem)
-            self.algorithmTree.addTopLevelItem(mainItem)
-
-        for providerName in allAlgs.keys():
-            groups = {}
-            provider = allAlgs[providerName]
-            name = 'ACTIVATE_' + providerName.upper().replace(' ', '_')
-            if not ProcessingConfig.getSetting(name):
-                continue
-            if providerName not in providersToExclude:
-                continue
-            algs = provider.values()
-
-            # Add algorithms
-            for alg in algs:
-                if not alg.showInModeler or alg.allowOnlyOpenedLayers:
-                    continue
-                if text == '' or text.lower() in alg.name.lower():
-                    if alg.group in groups:
-                        groupItem = groups[alg.group]
-                    else:
-                        groupItem = QTreeWidgetItem()
-                        groupItem.setText(0, alg.group)
-                        groupItem.setToolTip(0, alg.group)
-                        groups[alg.group] = groupItem
-                    algItem = TreeAlgorithmItem(alg)
-                    groupItem.addChild(algItem)
-
-            if len(groups) > 0:
-                providerItem = QTreeWidgetItem()
-                providerItem.setText(0,
-                        ModelerUtils.providers[providerName].getDescription())
-                providerItem.setIcon(0,
-                        ModelerUtils.providers[providerName].getIcon())
-                providerItem.setToolTip(0, providerItem.text(0))
-                for groupItem in groups.values():
-                    providerItem.addChild(groupItem)
-                self.algorithmTree.addTopLevelItem(providerItem)
-                providerItem.setExpanded(text != '')
-                for groupItem in groups.values():
-                    if text != '':
-                        groupItem.setExpanded(True)
-
     def fillAlgorithmTreeUsingProviders(self):
         self.algorithmTree.clear()
         text = unicode(self.searchBox.text())
         allAlgs = ModelerUtils.allAlgs
         for providerName in allAlgs.keys():
+            name = 'ACTIVATE_' + providerName.upper().replace(' ', '_')
+            if not ProcessingConfig.getSetting(name):
+                continue
             groups = {}
             provider = allAlgs[providerName]
             algs = provider.values()
@@ -556,13 +482,16 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
             for alg in algs:
                 if not alg.showInModeler or alg.allowOnlyOpenedLayers:
                     continue
+                if alg.commandLineName() == self.alg.commandLineName():
+                    continue
                 if text == '' or text.lower() in alg.name.lower():
                     if alg.group in groups:
                         groupItem = groups[alg.group]
                     else:
                         groupItem = QTreeWidgetItem()
-                        groupItem.setText(0, alg.group)
-                        groupItem.setToolTip(0, alg.group)
+                        name = alg.i18n_group or alg.group
+                        groupItem.setText(0, name)
+                        groupItem.setToolTip(0, name)
                         groups[alg.group] = groupItem
                     algItem = TreeAlgorithmItem(alg)
                     groupItem.addChild(algItem)
@@ -570,11 +499,11 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
             if len(groups) > 0:
                 providerItem = QTreeWidgetItem()
                 providerItem.setText(0,
-                        ModelerUtils.providers[providerName].getDescription())
+                                     ModelerUtils.providers[providerName].getDescription())
                 providerItem.setToolTip(0,
-                        ModelerUtils.providers[providerName].getDescription())
+                                        ModelerUtils.providers[providerName].getDescription())
                 providerItem.setIcon(0,
-                        ModelerUtils.providers[providerName].getIcon())
+                                     ModelerUtils.providers[providerName].getIcon())
                 for groupItem in groups.values():
                     providerItem.addChild(groupItem)
                 self.algorithmTree.addTopLevelItem(providerItem)
@@ -589,15 +518,10 @@ class ModelerDialog(QDialog, Ui_DlgModeler):
 class TreeAlgorithmItem(QTreeWidgetItem):
 
     def __init__(self, alg):
-        settings = QSettings()
-        useCategories = settings.value(ModelerDialog.USE_CATEGORIES, type=bool)
         QTreeWidgetItem.__init__(self)
         self.alg = alg
         icon = alg.getIcon()
-        name = alg.name
-        if useCategories:
-            icon = GeoAlgorithm.getDefaultIcon()
-            (group, subgroup, name) = AlgorithmDecorator.getGroupsAndName(alg)
+        name = AlgorithmClassification.getDisplayName(alg)
         self.setIcon(0, icon)
         self.setToolTip(0, name)
         self.setText(0, name)

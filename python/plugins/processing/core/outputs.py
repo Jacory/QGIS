@@ -15,6 +15,7 @@
 ***************************************************************************
 """
 
+
 __author__ = 'Victor Olaya'
 __date__ = 'August 2012'
 __copyright__ = '(C) 2012, Victor Olaya'
@@ -24,17 +25,19 @@ __copyright__ = '(C) 2012, Victor Olaya'
 __revision__ = '$Format:%H$'
 
 import sys
-from qgis.core import *
-from PyQt4.QtCore import *
-from processing.tools.system import *
+from PyQt4.QtCore import QCoreApplication, QSettings
+from processing.tools.system import isWindows, getTempFilenameInTempFolder
 from processing.tools.vector import VectorWriter, TableWriter
 from processing.tools import dataobjects
+from processing.core.ProcessingConfig import ProcessingConfig
+
 
 def getOutputFromString(s):
     tokens = s.split("|")
     params = [t if unicode(t) != "None" else None for t in tokens[1:]]
     clazz = getattr(sys.modules[__name__], tokens[0])
     return clazz(*params)
+
 
 class Output(object):
 
@@ -60,7 +63,7 @@ class Output(object):
         self.open = True
 
     def __str__(self):
-        return self.name + ' <' + self.__module__.split('.')[-1] + '>'
+        return u'{} <{}>'.format(self.name, self.__class__.__name__)
 
     def getValueAsCommandLineParameter(self):
         if self.value is None:
@@ -80,11 +83,18 @@ class Output(object):
         except:
             return False
 
-    def outputTypeName(self):
-        return self.__module__.split('.')[-1]
+    def typeName(self):
+        return self.__class__.__name__.replace('Output', '').lower()
+
+    def tr(self, string, context=''):
+        if context == '':
+            context = 'Output'
+        return QCoreApplication.translate(context, string)
+
 
 class OutputDirectory(Output):
     directory = True
+
 
 class OutputExtent(Output):
 
@@ -104,25 +114,27 @@ class OutputExtent(Output):
         except:
             return False
 
+
 class OutputFile(Output):
 
-    def __init__(self, name='', description='', ext = None):
+    def __init__(self, name='', description='', ext=None):
         Output.__init__(self, name, description)
         self.ext = ext
 
     def getFileFilter(self, alg):
         if self.ext is None:
-            return 'All files(*.*)'
+            return self.tr('All files(*.*)', 'OutputFile')
         else:
-            return '%s files(*.%s)' % (self.ext, self.ext)
+            return self.tr('%s files(*.%s)', 'OutputFile') % (self.ext, self.ext)
 
     def getDefaultFileExtension(self, alg):
         return self.ext or 'file'
 
+
 class OutputHTML(Output):
 
     def getFileFilter(self, alg):
-        return 'HTML files(*.html)'
+        return self.tr('HTML files(*.html)', 'OutputHTML')
 
     def getDefaultFileExtension(self, alg):
         return 'html'
@@ -136,24 +148,22 @@ class OutputNumber(Output):
         self.value = None
         self.hidden = True
 
+
 class OutputRaster(Output):
 
     compatible = None
 
     def getFileFilter(self, alg):
-        providerExts = alg.provider.getSupportedOutputRasterLayerExtensions()
-        if providerExts == ['tif']:
-            # use default extensions
-            exts = dataobjects.getSupportedOutputRasterLayerExtensions()
-        else:
-            # use extensions given by the algorithm provider
-            exts = providerExts
+        exts = dataobjects.getSupportedOutputRasterLayerExtensions()
         for i in range(len(exts)):
-            exts[i] = exts[i].upper() + ' files(*.' + exts[i].lower() + ')'
+            exts[i] = self.tr('%s files (*.%s)', 'OutputVector') % (exts[i].upper(), exts[i].lower())
         return ';;'.join(exts)
 
     def getDefaultFileExtension(self, alg):
-        return alg.provider.getSupportedOutputRasterLayerExtensions()[0]
+        supported = alg.provider.getSupportedOutputRasterLayerExtensions()
+        default = ProcessingConfig.getSetting(ProcessingConfig.DEFAULT_OUTPUT_RASTER_LAYER_EXT)
+        ext = default if default in supported else supported[0]
+        return ext
 
     def getCompatibleFileName(self, alg):
         """
@@ -170,9 +180,10 @@ class OutputRaster(Output):
             return self.value
         else:
             if self.compatible is None:
-                self.compatible = getTempFilenameInTempFolder(self.name + '.'
-                        + self.getDefaultFileExtension(alg))
+                self.compatible = getTempFilenameInTempFolder(
+                    self.name + '.' + self.getDefaultFileExtension(alg))
             return self.compatible
+
 
 class OutputString(Output):
 
@@ -181,6 +192,7 @@ class OutputString(Output):
         self.description = description
         self.value = None
         self.hidden = True
+
 
 class OutputTable(Output):
 
@@ -211,8 +223,8 @@ class OutputTable(Output):
             return self.value
         else:
             if self.compatible is None:
-                self.compatible = getTempFilenameInTempFolder(self.name + '.'
-                        + self.getDefaultFileExtension(alg))
+                self.compatible = getTempFilenameInTempFolder(
+                    self.name + '.' + self.getDefaultFileExtension(alg))
             return self.compatible
 
     def getTableWriter(self, fields):
@@ -241,11 +253,14 @@ class OutputVector(Output):
     def getFileFilter(self, alg):
         exts = dataobjects.getSupportedOutputVectorLayerExtensions()
         for i in range(len(exts)):
-            exts[i] = exts[i].upper() + ' files(*.' + exts[i].lower() + ')'
+            exts[i] = self.tr('%s files (*.%s)', 'OutputVector') % (exts[i].upper(), exts[i].lower())
         return ';;'.join(exts)
 
     def getDefaultFileExtension(self, alg):
-        return alg.provider.getSupportedOutputVectorLayerExtensions()[0]
+        supported = alg.provider.getSupportedOutputVectorLayerExtensions()
+        default = ProcessingConfig.getSetting(ProcessingConfig.DEFAULT_OUTPUT_VECTOR_LAYER_EXT)
+        ext = default if default in supported else supported[0]
+        return ext
 
     def getCompatibleFileName(self, alg):
         """Returns a filename that is compatible with the algorithm
@@ -262,8 +277,8 @@ class OutputVector(Output):
             return self.value
         else:
             if self.compatible is None:
-                self.compatible = getTempFilenameInTempFolder(self.name + '.'
-                        + self.getDefaultFileExtension(alg))
+                self.compatible = getTempFilenameInTempFolder(
+                    self.name + '.' + self.getDefaultFileExtension(alg))
             return self.compatible
 
     def getVectorWriter(self, fields, geomType, crs, options=None):
@@ -287,9 +302,9 @@ class OutputVector(Output):
 
         if self.encoding is None:
             settings = QSettings()
-            self.encoding = settings.value('/Processing/encoding', 'System', type=str)
+            self.encoding = settings.value('/Processing/encoding', 'System', str)
 
         w = VectorWriter(self.value, self.encoding, fields, geomType,
                          crs, options)
-        self.memoryLayer = w.memLayer
+        self.layer = w.layer
         return w

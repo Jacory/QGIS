@@ -24,16 +24,18 @@
 #include <QClipboard>
 #include <QKeyEvent>
 
-//For model testing
-//#include "modeltest.h"
+#ifdef ENABLE_MODELTEST
+#include "modeltest.h"
+#endif
 
-QgsColorSchemeList::QgsColorSchemeList( QWidget *parent , QgsColorScheme *scheme, const QString context, const QColor baseColor )
+QgsColorSchemeList::QgsColorSchemeList( QWidget *parent, QgsColorScheme *scheme, const QString &context, const QColor &baseColor )
     : QTreeView( parent )
     , mScheme( scheme )
 {
   mModel = new QgsColorSchemeModel( scheme, context, baseColor, this );
-  //for testing:
-  //new ModelTest( mModel, this );
+#ifdef ENABLE_MODELTEST
+  new ModelTest( mModel, this );
+#endif
   setModel( mModel );
 
   mSwatchDelegate = new QgsColorSwatchDelegate( this );
@@ -54,7 +56,7 @@ QgsColorSchemeList::~QgsColorSchemeList()
 
 }
 
-void QgsColorSchemeList::setScheme( QgsColorScheme *scheme, const QString context, const QColor baseColor )
+void QgsColorSchemeList::setScheme( QgsColorScheme *scheme, const QString &context, const QColor &baseColor )
 {
   mScheme = scheme;
   mModel->setScheme( scheme, context, baseColor );
@@ -74,7 +76,7 @@ bool QgsColorSchemeList::saveColorsToScheme()
 void QgsColorSchemeList::removeSelection()
 {
   QList<int> rows;
-  foreach ( const QModelIndex &index, selectedIndexes() )
+  Q_FOREACH ( const QModelIndex &index, selectedIndexes() )
   {
     rows << index.row();
   }
@@ -83,13 +85,13 @@ void QgsColorSchemeList::removeSelection()
 
   //remove rows in descending order
   qSort( rowsToRemove.begin(), rowsToRemove.end(), qGreater<int>() );
-  foreach ( const int row, rowsToRemove )
+  Q_FOREACH ( int row, rowsToRemove )
   {
     mModel->removeRow( row );
   }
 }
 
-void QgsColorSchemeList::addColor( const QColor color, const QString label )
+void QgsColorSchemeList::addColor( const QColor &color, const QString &label )
 {
   mModel->addColor( color, label );
 }
@@ -115,7 +117,7 @@ void QgsColorSchemeList::pasteColors()
 void QgsColorSchemeList::copyColors()
 {
   QList<int> rows;
-  foreach ( const QModelIndex &index, selectedIndexes() )
+  Q_FOREACH ( const QModelIndex &index, selectedIndexes() )
   {
     rows << index.row();
   }
@@ -123,7 +125,7 @@ void QgsColorSchemeList::copyColors()
   QList<int> rowsToCopy =  QList<int>::fromSet( rows.toSet() );
 
   QgsNamedColorList colorsToCopy;
-  foreach ( const int row, rowsToCopy )
+  Q_FOREACH ( int row, rowsToCopy )
   {
     colorsToCopy << mModel->colors().at( row );
   }
@@ -139,7 +141,7 @@ void QgsColorSchemeList::keyPressEvent( QKeyEvent *event )
   if (( event->key() == Qt::Key_Backspace || event->key() == Qt::Key_Delete ) )
   {
     QList<int> rows;
-    foreach ( const QModelIndex &index, selectedIndexes() )
+    Q_FOREACH ( const QModelIndex &index, selectedIndexes() )
     {
       rows << index.row();
     }
@@ -148,7 +150,7 @@ void QgsColorSchemeList::keyPressEvent( QKeyEvent *event )
 
     //remove rows in descending order
     qSort( rowsToRemove.begin(), rowsToRemove.end(), qGreater<int>() );
-    foreach ( const int row, rowsToRemove )
+    Q_FOREACH ( int row, rowsToRemove )
     {
       mModel->removeRow( row );
     }
@@ -233,7 +235,7 @@ bool QgsColorSchemeList::isDirty() const
 // QgsColorSchemeModel
 //
 
-QgsColorSchemeModel::QgsColorSchemeModel( QgsColorScheme *scheme, const QString context, const QColor baseColor, QObject *parent )
+QgsColorSchemeModel::QgsColorSchemeModel( QgsColorScheme *scheme, const QString &context, const QColor &baseColor, QObject *parent )
     : QAbstractItemModel( parent )
     , mScheme( scheme )
     , mContext( context )
@@ -337,7 +339,7 @@ Qt::ItemFlags QgsColorSchemeModel::flags( const QModelIndex &index ) const
   {
     case ColorSwatch:
     case ColorLabel:
-      if ( mScheme->isEditable() )
+      if ( mScheme && mScheme->isEditable() )
       {
         flags = flags | Qt::ItemIsEditable;
       }
@@ -351,7 +353,7 @@ bool QgsColorSchemeModel::setData( const QModelIndex &index, const QVariant &val
 {
   Q_UNUSED( role );
 
-  if ( !mScheme->isEditable() )
+  if ( !mScheme || !mScheme->isEditable() )
     return false;
 
   if ( !index.isValid() )
@@ -394,7 +396,6 @@ QVariant QgsColorSchemeModel::headerData( int section, Qt::Orientation orientati
         default:
           return QVariant();
       }
-      break;
     }
 
     case Qt::TextAlignmentRole:
@@ -414,7 +415,7 @@ QVariant QgsColorSchemeModel::headerData( int section, Qt::Orientation orientati
 
 Qt::DropActions QgsColorSchemeModel::supportedDropActions() const
 {
-  if ( mScheme->isEditable() )
+  if ( mScheme && mScheme->isEditable() )
   {
     return Qt::CopyAction | Qt::MoveAction;
   }
@@ -426,7 +427,7 @@ Qt::DropActions QgsColorSchemeModel::supportedDropActions() const
 
 QStringList QgsColorSchemeModel::mimeTypes() const
 {
-  if ( !mScheme->isEditable() )
+  if ( !mScheme || !mScheme->isEditable() )
   {
     return QStringList();
   }
@@ -460,7 +461,7 @@ bool QgsColorSchemeModel::dropMimeData( const QMimeData *data, Qt::DropAction ac
 {
   Q_UNUSED( column );
 
-  if ( !mScheme->isEditable() )
+  if ( !mScheme || !mScheme->isEditable() )
   {
     return false;
   }
@@ -522,7 +523,7 @@ bool QgsColorSchemeModel::dropMimeData( const QMimeData *data, Qt::DropAction ac
   return true;
 }
 
-void QgsColorSchemeModel::setScheme( QgsColorScheme *scheme, const QString context, const QColor baseColor )
+void QgsColorSchemeModel::setScheme( QgsColorScheme *scheme, const QString &context, const QColor &baseColor )
 {
   mScheme = scheme;
   mContext = context;
@@ -535,7 +536,7 @@ void QgsColorSchemeModel::setScheme( QgsColorScheme *scheme, const QString conte
 
 bool QgsColorSchemeModel::removeRows( int row, int count, const QModelIndex &parent )
 {
-  if ( !mScheme->isEditable() )
+  if ( !mScheme || !mScheme->isEditable() )
   {
     return false;
   }
@@ -565,7 +566,7 @@ bool QgsColorSchemeModel::insertRows( int row, int count, const QModelIndex& par
 {
   Q_UNUSED( parent );
 
-  if ( !mScheme->isEditable() )
+  if ( !mScheme || !mScheme->isEditable() )
   {
     return false;
   }
@@ -581,9 +582,9 @@ bool QgsColorSchemeModel::insertRows( int row, int count, const QModelIndex& par
   return true;
 }
 
-void QgsColorSchemeModel::addColor( const QColor color, const QString label )
+void QgsColorSchemeModel::addColor( const QColor &color, const QString &label )
 {
-  if ( !mScheme->isEditable() )
+  if ( !mScheme || !mScheme->isEditable() )
   {
     return;
   }

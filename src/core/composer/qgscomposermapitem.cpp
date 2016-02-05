@@ -19,7 +19,7 @@
 #include "qgscomposermap.h"
 #include <QUuid>
 
-QgsComposerMapItem::QgsComposerMapItem(const QString &name, QgsComposerMap *map )
+QgsComposerMapItem::QgsComposerMapItem( const QString &name, QgsComposerMap *map )
     : QgsComposerObject( map->composition() )
     , mName( name )
     , mComposerMap( map )
@@ -132,7 +132,7 @@ const QgsComposerMapItem *QgsComposerMapItemStack::constItem( const QString &ite
     }
   }
 
-  return 0;
+  return nullptr;
 }
 
 QgsComposerMapItem *QgsComposerMapItemStack::item( const QString &itemId ) const
@@ -146,7 +146,7 @@ QgsComposerMapItem *QgsComposerMapItemStack::item( const QString &itemId ) const
     }
   }
 
-  return 0;
+  return nullptr;
 }
 
 QgsComposerMapItem *QgsComposerMapItemStack::item( const int index ) const
@@ -156,7 +156,7 @@ QgsComposerMapItem *QgsComposerMapItemStack::item( const int index ) const
     return mItems.at( index );
   }
 
-  return 0;
+  return nullptr;
 }
 
 QgsComposerMapItem &QgsComposerMapItemStack::operator[]( int idx )

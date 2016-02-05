@@ -29,6 +29,7 @@ from LAStoolsAlgorithm import LAStoolsAlgorithm
 
 from processing.core.parameters import ParameterNumber
 
+
 class blast2iso(LAStoolsAlgorithm):
 
     SMOOTH = "SMOOTH"
@@ -38,39 +39,49 @@ class blast2iso(LAStoolsAlgorithm):
     CLEAN = "CLEAN"
 
     def defineCharacteristics(self):
-        self.name = "blast2iso"
-        self.group = "LAStools"
+        self.name, self.i18n_name = self.trAlgorithm('blast2iso')
+        self.group, self.i18n_group = self.trAlgorithm('LAStools')
         self.addParametersVerboseGUI()
         self.addParametersPointInputGUI()
-        self.addParameter(ParameterNumber(blast2iso.SMOOTH, "smooth underlying TIN", 0, None, 0))
-        self.addParameter(ParameterNumber(blast2iso.ISO_EVERY, "extract isoline with a spacing of", 0, None, 10.0))
-        self.addParameter(ParameterNumber(blast2iso.CLEAN, "clean isolines shorter than (0 = do not clean)", None, None, 0.0))
-        self.addParameter(ParameterNumber(blast2iso.SIMPLIFY_LENGTH, "simplify segments shorter than (0 = do not simplify)", None, None, 0.0))
-        self.addParameter(ParameterNumber(blast2iso.SIMPLIFY_AREA, "simplify segments pairs with area less than (0 = do not simplify)", None, None, 0.0))
+        self.addParameter(ParameterNumber(blast2iso.SMOOTH,
+                                          self.tr("smooth underlying TIN"), 0, None, 0))
+        self.addParameter(ParameterNumber(blast2iso.ISO_EVERY,
+                                          self.tr("extract isoline with a spacing of"), 0, None, 10.0))
+        self.addParameter(ParameterNumber(blast2iso.CLEAN,
+                                          self.tr("clean isolines shorter than (0 = do not clean)"),
+                                          None, None, 0.0))
+        self.addParameter(ParameterNumber(blast2iso.SIMPLIFY_LENGTH,
+                                          self.tr("simplify segments shorter than (0 = do not simplify)"),
+                                          None, None, 0.0))
+        self.addParameter(ParameterNumber(blast2iso.SIMPLIFY_AREA,
+                                          self.tr("simplify segments pairs with area less than (0 = do not simplify)"),
+                                          None, None, 0.0))
         self.addParametersVectorOutputGUI()
+        self.addParametersAdditionalGUI()
 
     def processAlgorithm(self, progress):
-        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "blast2iso.exe")]
+        commands = [os.path.join(LAStoolsUtils.LAStoolsPath(), "bin", "blast2iso")]
         self.addParametersVerboseCommands(commands)
         self.addParametersPointInputCommands(commands)
         smooth = self.getParameterValue(blast2iso.SMOOTH)
         if smooth != 0:
             commands.append("-smooth")
-            commands.append(str(smooth))
+            commands.append(unicode(smooth))
         commands.append("-iso_every")
-        commands.append(str(self.getParameterValue(blast2iso.ISO_EVERY)))
+        commands.append(unicode(self.getParameterValue(blast2iso.ISO_EVERY)))
         simplify_length = self.getParameterValue(blast2iso.SIMPLIFY_LENGTH)
         if simplify_length != 0:
             commands.append("-simplify_length")
-            commands.append(str(simplify_length))
+            commands.append(unicode(simplify_length))
         simplify_area = self.getParameterValue(blast2iso.SIMPLIFY_AREA)
         if simplify_area != 0:
             commands.append("-simplify_area")
-            commands.append(str(simplify_area))
+            commands.append(unicode(simplify_area))
         clean = self.getParameterValue(blast2iso.CLEAN)
         if clean != 0:
             commands.append("-clean")
-            commands.append(str(clean))
+            commands.append(unicode(clean))
         self.addParametersVectorOutputCommands(commands)
+        self.addParametersAdditionalCommands(commands)
 
         LAStoolsUtils.runLAStools(commands, progress)

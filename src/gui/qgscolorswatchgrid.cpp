@@ -30,7 +30,7 @@
 #define LABEL_SIZE 20 //label rect height
 #define LABEL_MARGIN 4 //spacing between label box and text
 
-QgsColorSwatchGrid::QgsColorSwatchGrid( QgsColorScheme* scheme, QString context, QWidget *parent )
+QgsColorSwatchGrid::QgsColorSwatchGrid( QgsColorScheme* scheme, const QString& context, QWidget *parent )
     : QWidget( parent )
     , mScheme( scheme )
     , mContext( context )
@@ -67,13 +67,13 @@ QSize QgsColorSwatchGrid::sizeHint() const
   return QSize( mWidth, calculateHeight() );
 }
 
-void QgsColorSwatchGrid::setContext( const QString context )
+void QgsColorSwatchGrid::setContext( const QString &context )
 {
   mContext = context;
   refreshColors();
 }
 
-void QgsColorSwatchGrid::setBaseColor( const QColor baseColor )
+void QgsColorSwatchGrid::setBaseColor( const QColor &baseColor )
 {
   mBaseColor = baseColor;
   refreshColors();
@@ -256,7 +256,7 @@ void QgsColorSwatchGrid::draw( QPainter &painter )
   QColor highlight = pal.color( QPalette::Highlight );
 
   //draw header background
-  painter.setBrush( headerBgColor ) ;
+  painter.setBrush( headerBgColor );
   painter.setPen( Qt::NoPen );
   painter.drawRect( QRect( 0, 0, width(), LABEL_SIZE ) );
 
@@ -266,9 +266,9 @@ void QgsColorSwatchGrid::draw( QPainter &painter )
                     Qt::AlignLeft | Qt::AlignVCenter, mScheme->schemeName() );
 
   //draw color swatches
-  QgsNamedColorList::iterator colorIt = mColors.begin();
+  QgsNamedColorList::const_iterator colorIt = mColors.constBegin();
   int index = 0;
-  for ( ; colorIt != mColors.end(); ++colorIt )
+  for ( ; colorIt != mColors.constEnd(); ++colorIt )
   {
     int row = index / NUMBER_COLORS_PER_ROW;
     int column = index % NUMBER_COLORS_PER_ROW;
@@ -308,6 +308,11 @@ void QgsColorSwatchGrid::draw( QPainter &painter )
     {
       painter.setPen( highlight );
     }
+    else if (( *colorIt ).first.name() == mBaseColor.name() )
+    {
+      //currently active color
+      painter.setPen( QColor( 75, 75, 75 ) );
+    }
     else
     {
       painter.setPen( QColor( 197, 197, 197 ) );
@@ -330,7 +335,7 @@ const QPixmap& QgsColorSwatchGrid::transparentBackground()
   return transpBkgrd;
 }
 
-int QgsColorSwatchGrid::swatchForPosition( const QPoint &position ) const
+int QgsColorSwatchGrid::swatchForPosition( QPoint position ) const
 {
   //calculate box for position
   int box = -1;
@@ -353,10 +358,11 @@ int QgsColorSwatchGrid::swatchForPosition( const QPoint &position ) const
 //
 
 
-QgsColorSwatchGridAction::QgsColorSwatchGridAction( QgsColorScheme* scheme, QMenu *menu, QString context, QWidget *parent )
+QgsColorSwatchGridAction::QgsColorSwatchGridAction( QgsColorScheme* scheme, QMenu *menu, const QString& context, QWidget *parent )
     : QWidgetAction( parent )
     , mMenu( menu )
     , mSuppressRecurse( false )
+    , mDismissOnColorSelection( true )
 {
   mColorSwatchGrid = new QgsColorSwatchGrid( scheme, context, parent );
 
@@ -367,7 +373,7 @@ QgsColorSwatchGridAction::QgsColorSwatchGridAction( QgsColorScheme* scheme, QMen
   connect( mColorSwatchGrid, SIGNAL( hovered() ), this, SLOT( onHover() ) );
 
   //hide the action if no colors to be shown
-  setVisible( mColorSwatchGrid->colors()->count() > 0 );
+  setVisible( !mColorSwatchGrid->colors()->isEmpty() );
 }
 
 QgsColorSwatchGridAction::~QgsColorSwatchGridAction()
@@ -375,7 +381,7 @@ QgsColorSwatchGridAction::~QgsColorSwatchGridAction()
 
 }
 
-void QgsColorSwatchGridAction::setBaseColor( const QColor baseColor )
+void QgsColorSwatchGridAction::setBaseColor( const QColor &baseColor )
 {
   mColorSwatchGrid->setBaseColor( baseColor );
 }
@@ -390,7 +396,7 @@ QString QgsColorSwatchGridAction::context() const
   return mColorSwatchGrid->context();
 }
 
-void QgsColorSwatchGridAction::setContext( const QString context )
+void QgsColorSwatchGridAction::setContext( const QString &context )
 {
   mColorSwatchGrid->setContext( context );
 }
@@ -399,14 +405,14 @@ void QgsColorSwatchGridAction::refreshColors()
 {
   mColorSwatchGrid->refreshColors();
   //hide the action if no colors shown
-  setVisible( mColorSwatchGrid->colors()->count() > 0 );
+  setVisible( !mColorSwatchGrid->colors()->isEmpty() );
 }
 
 void QgsColorSwatchGridAction::setColor( const QColor &color )
 {
   emit colorChanged( color );
   QAction::trigger();
-  if ( mMenu )
+  if ( mMenu && mDismissOnColorSelection )
   {
     mMenu->hide();
   }

@@ -12,17 +12,15 @@
  *   (at your option) any later version.                                   *
  *                                                                         *
  ***************************************************************************/
-#include <QtTest>
+#include <QtTest/QtTest>
 #include <QObject>
 #include <QString>
 #include <QStringList>
-#include <QObject>
 #include <QApplication>
 #include <QFileInfo>
 #include <QDir>
 #include <QDesktopServices>
 
-#include <iostream>
 //qgis includes...
 #include <qgsmaprenderer.h>
 #include <qgsmaplayer.h>
@@ -31,19 +29,23 @@
 #include <qgsproviderregistry.h>
 #include <qgsmaplayerregistry.h>
 //qgis test includes
-#include "qgsrenderchecker.h"
+#include "qgsmultirenderchecker.h"
 
 /** \ingroup UnitTests
  * This is a unit test for the different renderers for vector layers.
  */
-class TestQgsInvertedPolygon: public QObject
+class TestQgsInvertedPolygon : public QObject
 {
-    Q_OBJECT;
+    Q_OBJECT
+
+  public:
+    TestQgsInvertedPolygon();
+
   private slots:
     void initTestCase();// will be called before the first testfunction is executed.
     void cleanupTestCase();// will be called after the last testfunction was executed.
-    void init() {};// will be called before each testfunction is executed.
-    void cleanup() {};// will be called after every testfunction.
+    void init() {} // will be called before each testfunction is executed.
+    void cleanup() {} // will be called after every testfunction.
 
     void singleSubRenderer();
     void graduatedSubRenderer();
@@ -52,14 +54,21 @@ class TestQgsInvertedPolygon: public QObject
 
   private:
     bool mTestHasError;
-    bool setQml( QString qmlFile );
-    bool imageCheck( QString theType, const QgsRectangle* = 0 );
+    bool setQml( const QString& qmlFile );
+    bool imageCheck( const QString& theType, const QgsRectangle* = 0 );
     QgsMapSettings mMapSettings;
     QgsVectorLayer * mpPolysLayer;
     QString mTestDataDir;
     QString mReport;
 };
 
+
+TestQgsInvertedPolygon::TestQgsInvertedPolygon()
+    : mTestHasError( false )
+    , mpPolysLayer( nullptr )
+{
+
+}
 
 void TestQgsInvertedPolygon::initTestCase()
 {
@@ -70,7 +79,7 @@ void TestQgsInvertedPolygon::initTestCase()
   QgsApplication::showSettings();
 
   QString myDataDir( TEST_DATA_DIR ); //defined in CmakeLists.txt
-  mTestDataDir = myDataDir + QDir::separator();
+  mTestDataDir = myDataDir + '/';
 
   //
   //create a poly layer that will be used in all tests...
@@ -93,7 +102,7 @@ void TestQgsInvertedPolygon::initTestCase()
 
 void TestQgsInvertedPolygon::cleanupTestCase()
 {
-  QString myReportFile = QDir::tempPath() + QDir::separator() + "qgistest.html";
+  QString myReportFile = QDir::tempPath() + "/qgistest.html";
   QFile myFile( myReportFile );
   if ( myFile.open( QIODevice::WriteOnly | QIODevice::Append ) )
   {
@@ -101,6 +110,8 @@ void TestQgsInvertedPolygon::cleanupTestCase()
     myQTextStream << mReport;
     myFile.close();
   }
+
+  QgsApplication::exitQgis();
 }
 
 void TestQgsInvertedPolygon::singleSubRenderer()
@@ -142,7 +153,7 @@ void TestQgsInvertedPolygon::projectionTest()
 // Private helper functions not called directly by CTest
 //
 
-bool TestQgsInvertedPolygon::setQml( QString qmlFile )
+bool TestQgsInvertedPolygon::setQml( const QString& qmlFile )
 {
   //load a qml style and apply to our layer
   //the style will correspond to the renderer
@@ -158,7 +169,7 @@ bool TestQgsInvertedPolygon::setQml( QString qmlFile )
   return myStyleFlag;
 }
 
-bool TestQgsInvertedPolygon::imageCheck( QString theTestType, const QgsRectangle* extent )
+bool TestQgsInvertedPolygon::imageCheck( const QString& theTestType, const QgsRectangle* extent )
 {
   //use the QgsRenderChecker test utility class to
   //ensure the rendered output matches our control image
@@ -170,13 +181,16 @@ bool TestQgsInvertedPolygon::imageCheck( QString theTestType, const QgsRectangle
   {
     mMapSettings.setExtent( *extent );
   }
-  QgsRenderChecker myChecker;
+  mMapSettings.setOutputDpi( 96 );
+  QgsMultiRenderChecker myChecker;
+  myChecker.setControlPathPrefix( "symbol_invertedpolygon" );
   myChecker.setControlName( "expected_" + theTestType );
   myChecker.setMapSettings( mMapSettings );
-  bool myResultFlag = myChecker.runTest( theTestType, 1000 ); // allow some mismatched pixels
+  myChecker.setColorTolerance( 20 );
+  bool myResultFlag = myChecker.runTest( theTestType, 100 );
   mReport += myChecker.report();
   return myResultFlag;
 }
 
 QTEST_MAIN( TestQgsInvertedPolygon )
-#include "moc_testqgsinvertedpolygonrenderer.cxx"
+#include "testqgsinvertedpolygonrenderer.moc"

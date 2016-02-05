@@ -25,9 +25,7 @@ __copyright__ = '(C) 2014, Piotr Pociask'
 
 __revision__ = '$Format:%H$'
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-from qgis.core import *
+from qgis.core import QGis, QgsFeatureRequest, QgsFeature, QgsGeometry
 from processing.core.GeoAlgorithm import GeoAlgorithm
 from processing.core.parameters import ParameterVector
 from processing.core.parameters import ParameterNumber
@@ -36,6 +34,7 @@ from processing.core.outputs import OutputVector
 from processing.tools import dataobjects
 import processing
 from math import sqrt
+
 
 class ConcaveHull(GeoAlgorithm):
 
@@ -46,16 +45,18 @@ class ConcaveHull(GeoAlgorithm):
     OUTPUT = 'OUTPUT'
 
     def defineCharacteristics(self):
-        self.name = 'Concave hull'
-        self.group = 'Vector geometry tools'
-        self.addParameter(ParameterVector(ConcaveHull.INPUT, 'Input point layer',
-                          [ParameterVector.VECTOR_TYPE_POINT]))
+        self.name, self.i18n_name = self.trAlgorithm('Concave hull')
+        self.group, self.i18n_group = self.trAlgorithm('Vector geometry tools')
+        self.addParameter(ParameterVector(ConcaveHull.INPUT,
+                                          self.tr('Input point layer'), [ParameterVector.VECTOR_TYPE_POINT]))
         self.addParameter(ParameterNumber(self.ALPHA,
-                            'Threshold (0-1, where 1 is equivalent with Convex Hull)', 0, 1, 0.3))
-        self.addParameter(ParameterBoolean(self.HOLES, 'Allow holes', True))
+                                          self.tr('Threshold (0-1, where 1 is equivalent with Convex Hull)'),
+                                          0, 1, 0.3))
+        self.addParameter(ParameterBoolean(self.HOLES,
+                                           self.tr('Allow holes'), True))
         self.addParameter(ParameterBoolean(self.NO_MULTIGEOMETRY,
-                            'Split multipart geometry into singleparts geometries', False))
-        self.addOutput(OutputVector(ConcaveHull.OUTPUT, 'Concave hull'))
+                                           self.tr('Split multipart geometry into singleparts geometries'), False))
+        self.addOutput(OutputVector(ConcaveHull.OUTPUT, self.tr('Concave hull')))
 
     def processAlgorithm(self, progress):
         #get parameters
@@ -64,31 +65,31 @@ class ConcaveHull(GeoAlgorithm):
         holes = self.getParameterValue(self.HOLES)
         no_multigeom = self.getParameterValue(self.NO_MULTIGEOMETRY)
         #Delaunay triangulation from input point layer
-        progress.setText('Creating Delaunay triangles ...')
-        delone_triangles = processing.runalg("qgis:delaunaytriangulation", layer, None)['OUTPUT']
+        progress.setText(self.tr('Creating Delaunay triangles...'))
+        delone_triangles = processing.runalg("qgis:delaunaytriangulation", layer, None, progress=None)['OUTPUT']
         delaunay_layer = processing.getObject(delone_triangles)
         #get max edge length from Delaunay triangles
-        progress.setText('Computing edges max length ...')
+        progress.setText(self.tr('Computing edges max length...'))
         features = delaunay_layer.getFeatures()
-        counter = 50./delaunay_layer.featureCount()
+        counter = 50. / delaunay_layer.featureCount()
         lengths = []
         edges = {}
         for feat in features:
             line = feat.geometry().asPolygon()[0]
-            for i in range(len(line)-1):
-                lengths.append(sqrt(line[i].sqrDist(line[i+1])))
+            for i in range(len(line) - 1):
+                lengths.append(sqrt(line[i].sqrDist(line[i + 1])))
             edges[feat.id()] = max(lengths[-3:])
-            progress.setPercentage(feat.id()*counter)
+            progress.setPercentage(feat.id() * counter)
         max_length = max(lengths)
         #get features with longest edge longer than alpha*max_length
-        progress.setText('Removing features ...')
-        counter = 50./len(edges)
+        progress.setText(self.tr('Removing features...'))
+        counter = 50. / len(edges)
         i = 0
         ids = []
         for id, max_len in edges.iteritems():
-            if max_len > alpha*max_length:
+            if max_len > alpha * max_length:
                 ids.append(id)
-            progress.setPercentage(50+i*counter)
+            progress.setPercentage(50 + i * counter)
             i += 1
         #remove features
         delaunay_layer.setSelectedFeatures(ids)
@@ -96,17 +97,16 @@ class ConcaveHull(GeoAlgorithm):
         delaunay_layer.deleteSelectedFeatures()
         delaunay_layer.commitChanges()
         #dissolve all Delaunay triangles
-        progress.setText('Dissolving Delaunay triangles ...')
+        progress.setText(self.tr('Dissolving Delaunay triangles...'))
         dissolved = processing.runalg("qgis:dissolve", delaunay_layer,
-                                      True, '', None)['OUTPUT']
+                                      True, None, None, progress=None)['OUTPUT']
         dissolved_layer = processing.getObject(dissolved)
         #save result
-        progress.setText('Saving data ...')
+        progress.setText(self.tr('Saving data...'))
         feat = QgsFeature()
         dissolved_layer.getFeatures(QgsFeatureRequest().setFilterFid(0)).nextFeature(feat)
-        writer = self.getOutputFromName(
-                self.OUTPUT).getVectorWriter(layer.pendingFields().toList(),
-                                             QGis.WKBPolygon, layer.crs())
+        writer = self.getOutputFromName(self.OUTPUT).getVectorWriter(
+            layer.pendingFields().toList(), QGis.WKBPolygon, layer.crs())
         geom = feat.geometry()
         if no_multigeom and geom.isMultipart():
             #only singlepart geometries are allowed

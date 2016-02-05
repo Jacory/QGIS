@@ -49,7 +49,7 @@ class GUI_EXPORT QgsAttributeDialog : public QDialog
      *
      * @deprecated
      */
-    QgsAttributeDialog( QgsVectorLayer *vl, QgsFeature *thepFeature, bool featureOwner, QgsDistanceArea myDa, QWidget* parent = 0, bool showDialogButtons = true );
+    Q_DECL_DEPRECATED QgsAttributeDialog( QgsVectorLayer *vl, QgsFeature *thepFeature, bool featureOwner, const QgsDistanceArea& myDa, QWidget* parent = nullptr, bool showDialogButtons = true );
 
     /**
      * Create an attribute dialog for a given layer and feature
@@ -62,7 +62,7 @@ class GUI_EXPORT QgsAttributeDialog : public QDialog
      * @param context           The context in which this dialog is created
      *
      */
-    QgsAttributeDialog( QgsVectorLayer *vl, QgsFeature *thepFeature, bool featureOwner, QWidget* parent = 0, bool showDialogButtons = true, QgsAttributeEditorContext context = QgsAttributeEditorContext() );
+    QgsAttributeDialog( QgsVectorLayer *vl, QgsFeature *thepFeature, bool featureOwner, QWidget* parent = nullptr, bool showDialogButtons = true, const QgsAttributeEditorContext& context = QgsAttributeEditorContext() );
 
     ~QgsAttributeDialog();
 
@@ -118,15 +118,24 @@ class GUI_EXPORT QgsAttributeDialog : public QDialog
      */
     void setEditCommandMessage( const QString& message ) { mAttributeForm->setEditCommandMessage( message ); }
 
+    /**
+     * Intercept window activate/deactive events to show/hide the highlighted feature.
+     *
+     * @param e The event
+     *
+     * @return The same as the parent QDialog
+     */
+    virtual bool event( QEvent *e ) override;
+
   public slots:
-    void accept();
+    void accept() override;
 
     //! Show the dialog non-blocking. Reparents this dialog to be a child of the dialog form and is deleted when
     //! closed.
     void show( bool autoDelete = true );
 
   private:
-    void init( QgsVectorLayer* layer, QgsFeature* feature, QgsAttributeEditorContext& context, QWidget* parent );
+    void init( QgsVectorLayer* layer, QgsFeature* feature, const QgsAttributeEditorContext& context );
 
     QString mSettingsPath;
     // Used to sync multiple widgets for the same field
@@ -135,7 +144,7 @@ class GUI_EXPORT QgsAttributeDialog : public QDialog
     bool mShowDialogButtons;
     QString mReturnvarname;
     QgsAttributeForm* mAttributeForm;
-    QMenuBar* mMenuBar;
+    QgsFeature *mOwnedFeature;
 
     // true if this dialog is editable
     bool mEditable;

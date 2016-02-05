@@ -3,7 +3,7 @@
      --------------------------------------
     Date                 : 8.5.2014
     Copyright            : (C) 2014 Matthias Kuhn
-    Email                : matthias dot kuhn at gmx dot ch
+    Email                : matthias at opengis dot ch
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -20,17 +20,21 @@
 
 #include "qgseditorconfigwidget.h"
 
+/** \class QgsTextEditConfigDlg
+ * \note not available in Python bindings
+ */
+
 class GUI_EXPORT QgsTextEditConfigDlg : public QgsEditorConfigWidget, private Ui::QgsTextEditConfigDlg
 {
     Q_OBJECT
 
   public:
-    explicit QgsTextEditConfigDlg( QgsVectorLayer* vl, int fieldIdx, QWidget *parent = 0 );
+    explicit QgsTextEditConfigDlg( QgsVectorLayer* vl, int fieldIdx, QWidget *parent = nullptr );
 
     // QgsEditorConfigWidget interface
   public:
-    QgsEditorWidgetConfig config();
-    void setConfig( const QgsEditorWidgetConfig& config );
+    QgsEditorWidgetConfig config() override;
+    void setConfig( const QgsEditorWidgetConfig& config ) override;
 };
 
 #endif // QGSTEXTEDITCONFIGDLG_H

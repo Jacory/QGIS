@@ -26,8 +26,8 @@ __copyright__ = '(C) 2013, Victor Olaya'
 __revision__ = '$Format:%H$'
 
 import math
-from PyQt4.QtCore import *
-from qgis.core import *
+import codecs
+
 from processing.core.GeoAlgorithm import GeoAlgorithm
 from processing.core.parameters import ParameterRaster
 from processing.core.outputs import OutputNumber
@@ -102,20 +102,24 @@ class RasterLayerStatistics(GeoAlgorithm):
         self.setOutputValue(self.STD_DEV, stddev)
 
     def defineCharacteristics(self):
-        self.name = 'Raster layer statistics'
-        self.group = 'Raster tools'
-        self.addParameter(ParameterRaster(self.INPUT, 'Input layer'))
-        self.addOutput(OutputHTML(self.OUTPUT_HTML_FILE, 'Statistics'))
-        self.addOutput(OutputNumber(self.MIN, 'Minimum value'))
-        self.addOutput(OutputNumber(self.MAX, 'Maximum value'))
-        self.addOutput(OutputNumber(self.SUM, 'Sum'))
-        self.addOutput(OutputNumber(self.MEAN, 'Mean value'))
-        self.addOutput(OutputNumber(self.COUNT, 'valid cells count'))
-        self.addOutput(OutputNumber(self.COUNT, 'No-data cells count'))
-        self.addOutput(OutputNumber(self.STD_DEV, 'Standard deviation'))
+        self.name, self.i18n_name = self.trAlgorithm('Raster layer statistics')
+        self.group, self.i18n_group = self.trAlgorithm('Raster tools')
+        self.addParameter(ParameterRaster(self.INPUT, self.tr('Input layer')))
+        self.addOutput(OutputHTML(self.OUTPUT_HTML_FILE, self.tr('Statistics')))
+        self.addOutput(OutputNumber(self.MIN, self.tr('Minimum value')))
+        self.addOutput(OutputNumber(self.MAX, self.tr('Maximum value')))
+        self.addOutput(OutputNumber(self.SUM, self.tr('Sum')))
+        self.addOutput(OutputNumber(self.MEAN, self.tr('Mean value')))
+        self.addOutput(OutputNumber(self.COUNT, self.tr('valid cells count')))
+        self.addOutput(OutputNumber(self.COUNT, self.tr('No-data cells count')))
+        self.addOutput(OutputNumber(self.STD_DEV, self.tr('Standard deviation')))
 
     def createHTML(self, outputFile, algData):
-        f = open(outputFile, 'w')
+        f = codecs.open(outputFile, 'w', encoding='utf-8')
+        f.write('<html><head>')
+        f.write('<meta http-equiv="Content-Type" content="text/html; \
+                charset=utf-8" /></head><body>')
         for s in algData:
-            f.write('<p>' + str(s) + '</p>')
+            f.write('<p>' + unicode(s) + '</p>')
+        f.write('</body></html>')
         f.close()

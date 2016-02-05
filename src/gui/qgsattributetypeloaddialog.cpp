@@ -35,15 +35,15 @@
 #include <QFileDialog>
 
 QgsAttributeTypeLoadDialog::QgsAttributeTypeLoadDialog( QgsVectorLayer *vl )
-    : QDialog(),
-    mLayer( vl )
+    : QDialog()
+    , mLayer( vl )
 {
   setupUi( this );
 
   connect( layerComboBox, SIGNAL( currentIndexChanged( int ) ), this, SLOT( fillComboBoxes( int ) ) );
   connect( keyComboBox, SIGNAL( currentIndexChanged( int ) ), this, SLOT( createPreview( int ) ) );
   connect( valueComboBox, SIGNAL( currentIndexChanged( int ) ), this, SLOT( createPreview( int ) ) );
-  connect( previewButton, SIGNAL( pressed( ) ), this, SLOT( previewButtonPushed( ) ) );
+  connect( previewButton, SIGNAL( pressed() ), this, SLOT( previewButtonPushed() ) );
 
   fillLayerList();
 
@@ -70,7 +70,7 @@ void QgsAttributeTypeLoadDialog::fillLayerList()
 {
   layerComboBox->blockSignals( true );
   layerComboBox->clear();
-  foreach ( QgsMapLayer *l, QgsMapLayerRegistry::instance()->mapLayers() )
+  Q_FOREACH ( QgsMapLayer *l, QgsMapLayerRegistry::instance()->mapLayers() )
   {
     QgsVectorLayer *vl = qobject_cast< QgsVectorLayer * >( l );
     if ( vl )
@@ -89,7 +89,7 @@ void QgsAttributeTypeLoadDialog::fillComboBoxes( int layerIndex )
   keyComboBox->clear();
   valueComboBox->clear();
 
-  QgsVectorLayer *vLayer = qobject_cast<QgsVectorLayer *>( layerIndex < 0 ? 0 : QgsMapLayerRegistry::instance()->mapLayer( layerComboBox->itemData( layerIndex ).toString() ) );
+  QgsVectorLayer *vLayer = qobject_cast<QgsVectorLayer *>( layerIndex < 0 ? nullptr : QgsMapLayerRegistry::instance()->mapLayer( layerComboBox->itemData( layerIndex ).toString() ) );
   if ( vLayer )
   {
     QMap<QString, int> fieldMap = vLayer->dataProvider()->fieldNameMap();
@@ -101,11 +101,11 @@ void QgsAttributeTypeLoadDialog::fillComboBoxes( int layerIndex )
     }
   }
 
-  keyComboBox->setEnabled( vLayer != 0 );
-  valueComboBox->setEnabled( vLayer != 0 );
+  keyComboBox->setEnabled( nullptr != vLayer );
+  valueComboBox->setEnabled( nullptr != vLayer );
 
   keyComboBox->setCurrentIndex( -1 );
-  valueComboBox->setEnabled( -1 );
+  valueComboBox->setCurrentIndex( -1 );
 
   keyComboBox->blockSignals( false );
   valueComboBox->blockSignals( false );

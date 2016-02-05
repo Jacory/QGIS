@@ -23,8 +23,11 @@
 #include <qgsgpsmarker.h>
 #include <qgsmaptoolcapture.h>
 #include <qwt_plot_curve.h>
+#ifdef WITH_QWTPOLAR
 #include <qwt_polar_plot.h>
+#include <qwt_polar_grid.h>
 #include <qwt_polar_marker.h>
+#endif
 
 class QextSerialPort;
 class QgsGPSConnection;
@@ -34,14 +37,14 @@ struct QgsGPSInformation;
 class QFile;
 class QColor;
 
-/**A dock widget that displays information from a GPS device and
+/** A dock widget that displays information from a GPS device and
  * allows the user to capture features using gps readings to
  * specify the geometry.*/
 class QgsGPSInformationWidget: public QWidget, private Ui::QgsGPSInformationWidgetBase
 {
     Q_OBJECT
   public:
-    QgsGPSInformationWidget( QgsMapCanvas * thepCanvas, QWidget * parent = 0, Qt::WindowFlags f = 0 );
+    QgsGPSInformationWidget( QgsMapCanvas * thepCanvas, QWidget * parent = nullptr, Qt::WindowFlags f = nullptr );
     ~QgsGPSInformationWidget();
 
   private slots:
@@ -50,18 +53,18 @@ class QgsGPSInformationWidget: public QWidget, private Ui::QgsGPSInformationWidg
     void logNmeaSentence( const QString& nmeaString ); // added to handle 'raw' data
     void updateCloseFeatureButton( QgsMapLayer * lyr );
     void layerEditStateChanged();
-//   void setTrackColor( ); // no longer used
-    void on_mBtnTrackColor_clicked( );
+//   void setTrackColor(); // no longer used
+    void on_mBtnTrackColor_clicked();
     void on_mSpinTrackWidth_valueChanged( int theValue );
-    void on_mBtnPosition_clicked( );
-    void on_mBtnSignal_clicked( );
-    void on_mBtnSatellites_clicked( );
-    void on_mBtnOptions_clicked( );
-    void on_mBtnDebug_clicked( );
-    void on_mBtnRefreshDevices_clicked( );
-    void on_mBtnAddVertex_clicked( );
-    void on_mBtnCloseFeature_clicked( );
-    void on_mBtnResetFeature_clicked( );
+    void on_mBtnPosition_clicked();
+    void on_mBtnSignal_clicked();
+    void on_mBtnSatellites_clicked();
+    void on_mBtnOptions_clicked();
+    void on_mBtnDebug_clicked();
+    void on_mBtnRefreshDevices_clicked();
+    void on_mBtnAddVertex_clicked();
+    void on_mBtnCloseFeature_clicked();
+    void on_mBtnResetFeature_clicked();
 // not needed    void on_mCbxAutoAddVertices_toggled( bool theFlag );
     void on_mBtnLogFile_clicked();
 
@@ -73,9 +76,9 @@ class QgsGPSInformationWidget: public QWidget, private Ui::QgsGPSInformationWidg
     {
       NoData, NoFix, Fix2D, Fix3D
     };
-    void addVertex( );
+    void addVertex();
     void connectGps();
-    void connectGpsSlot( );
+    void connectGpsSlot();
     void disconnectGps();
     void populateDevices();
     void setStatusIndicator( const FixStatus statusValue );
@@ -85,9 +88,12 @@ class QgsGPSInformationWidget: public QWidget, private Ui::QgsGPSInformationWidg
     QgsGpsMarker * mpMapMarker;
     QwtPlot * mpPlot;
     QwtPlotCurve * mpCurve;
+#ifdef WITH_QWTPOLAR
     QwtPolarPlot * mpSatellitesWidget;
+    QwtPolarGrid *mpSatellitesGrid;
     QList< QwtPolarMarker * > mMarkerList;
-    void createRubberBand( );
+#endif
+    void createRubberBand();
     QgsCoordinateReferenceSystem mWgs84CRS;
 // not used    QPointF gpsToPixelPosition( const QgsPoint& point );
     QgsRubberBand * mpRubberBand;
